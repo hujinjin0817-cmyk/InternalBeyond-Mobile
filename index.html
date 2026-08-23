@@ -932,6 +932,15 @@ body.theme-infernal .cal-note{background:rgba(24,33,58,0.42)}
 .dc{background:var(--panel);border:1px solid var(--panel-line);border-radius:18px;padding:14px;text-align:center}
 .dc-num{font-family:var(--serif);font-weight:600;font-size:1.5rem;color:var(--acc)}
 .dc-label{font-size:0.58rem;letter-spacing:0.18em;color:var(--tx3);margin-top:5px;text-transform:uppercase}
+.cloud-sync{display:grid;gap:10px;margin-top:12px}
+.cloud-sync .sync-line{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-top:1px solid var(--line)}
+.cloud-sync .sync-line:first-child{border-top:none;padding-top:0}
+.cloud-sync .sync-title{font-size:.86rem;color:var(--tx)}
+.cloud-sync .sync-sub{font-size:.66rem;color:var(--tx3);line-height:1.55;margin-top:2px}
+.cloud-sync .sync-code{width:100%;box-sizing:border-box;border:1px solid var(--line);border-radius:14px;background:var(--panel);color:var(--tx);padding:10px 12px;font-size:.78rem;outline:none}
+.cloud-sync .sync-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.cloud-sync .sync-status{font-size:.72rem;color:var(--tx2);line-height:1.6}
+.cloud-sync .sync-status b{color:var(--acc);font-weight:500}
 .tool-row{display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid var(--line)}
 .tool-row:last-child{border-bottom:none}
 .tool-name{flex:1;min-width:0;font-size:0.84rem;color:var(--tx);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -2308,7 +2317,7 @@ raf=requestAnimationFrame(frame);
         <pre style="max-height:46vh;overflow:auto;white-space:pre-wrap;word-break:break-all;font-size:0.72rem;line-height:1.7;color:var(--tx2);background:var(--soft);border:1px solid var(--line);border-radius:12px;padding:12px;margin:8px 0 0">/* InternalBeyond Mobile — ib-sw.js（Service Worker 模板 · 联网优先，离线回退）
    与手机端 HTML 放在同一目录，经 HTTPS 访问时页面会自动注册本文件。
    只接管本站的 GET 请求；发往 AI 服务商 / 中转站的请求原样放行、绝不缓存。 */
-const IB_CACHE=&#x27;ib-cache-v2&#x27;;
+const IB_CACHE=&#x27;ib-cache-v3&#x27;;
 self.addEventListener(&#x27;install&#x27;,function(){self.skipWaiting()});
 self.addEventListener(&#x27;activate&#x27;,function(e){e.waitUntil(caches.keys().then(function(ks){return Promise.all(ks.filter(function(k){return k!==IB_CACHE}).map(function(k){return caches.delete(k)}))}).then(function(){return self.clients.claim()}))});
 self.addEventListener(&#x27;fetch&#x27;,function(e){
@@ -3101,6 +3110,19 @@ self.addEventListener(&#x27;fetch&#x27;,function(e){
         <button class="btn wide primary" id="btn-import">导入备份文件</button>
         <div style="height:10px"></div>
         <button class="btn wide" id="btn-export">导出备份文件</button>
+        <div class="cloud-sync" id="cloud-sync-box">
+          <div class="sync-line">
+            <div><div class="sync-title">云同步</div><div class="sync-sub">Safari 与主屏 PWA 共用同一份加密云端数据</div></div>
+            <div class="sw2" id="sync-on"></div>
+          </div>
+          <input class="sync-code" id="sync-code" autocomplete="off" placeholder="同步码">
+          <div class="sync-actions">
+            <button class="btn" id="sync-gen" type="button">生成同步码</button>
+            <button class="btn" id="sync-save" type="button">保存同步码</button>
+          </div>
+          <button class="btn wide primary" id="sync-now" type="button">立即同步</button>
+          <div class="sync-status" id="sync-status">未开启</div>
+        </div>
         <p class="hint" id="imp-log" style="display:none;color:var(--tx2)"></p>
         <p class="hint">导入：并入备份里的名片、API 配置、聊天记录、话题频道、对话摘要、群聊、上传文件、记忆库、Auto Memory、设置、日历事项与便笺、公开日志、日志分类、信件、日志留言、日志批注、ICode 项目/文件与 Beyond 动态，同 id 记录以文件为准，其余数据不受影响；备份里手机端不认识的模块自动跳过，并记入上方导入日志。<br>导出：也只含这些模块，拿到电脑版导入时其余模块不会被改动。ICode 文件里若存有 AI 生成的图片，备份体积会随之增大。</p>
         <p class="hint" style="margin-top:8px"><strong style="color:var(--tx2)">API 密钥提醒</strong>：备份文件里包含全部 API 配置的密钥（明文）。把备份发给任何人之前，请先到 API 页把各配置的 Key 清空后再导出，或导出后手动删掉文件中的 apiKey 字段；同样地，导入他人的备份也会把对方的 Key 一并写进来。</p>
@@ -3882,10 +3904,12 @@ function dbEach(s,cb){return new Promise((res,rej)=>{try{const req=db.transactio
 function _dbEachByFriend(fid,cb){return new Promise((res,rej)=>{try{const st=db.transaction('chatMessages').objectStore('chatMessages');let src=null;try{src=st.index('byFriend')}catch(e){}const req=src?src.openCursor(IDBKeyRange.only(fid)):st.openCursor();req.onsuccess=ev=>{const c=ev.target.result;if(!c){res();return}const v=c.value||{};if(src?true:v.friendId===fid){try{cb(v)}catch(e){}}c.continue()};req.onerror=()=>rej(req.error)}catch(e){rej(e)}})}/* v138-p·v140-a #②：按好友游标逐条——检索不再把全部消息拉进堆（与 _cvcalBuild 同款走法） */
 function dbCount(s){return new Promise((res,rej)=>{const r=db.transaction(s).objectStore(s).count();r.onsuccess=()=>res(r.result||0);r.onerror=()=>rej(r.error)})}
 function dbGetByIndex(s,idx,val){return new Promise((res,rej)=>{const r=db.transaction(s).objectStore(s).index(idx).getAll(IDBKeyRange.only(val));r.onsuccess=()=>res(r.result||[]);r.onerror=()=>rej(r.error)})}
-function dbPut(s,v){return new Promise((res,rej)=>{const tx=db.transaction(s,'readwrite');tx.objectStore(s).put(v);tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error)})}
-function dbPutAll(s,arr){return new Promise((res,rej)=>{const tx=db.transaction(s,'readwrite');const st=tx.objectStore(s);arr.forEach(v=>{try{st.put(v)}catch(e){}});tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error)})}
-function dbDelete(s,k){return new Promise((res,rej)=>{const tx=db.transaction(s,'readwrite');tx.objectStore(s).delete(k);tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error)})}
-function dbDeleteMany(s,keys){return new Promise((res,rej)=>{const tx=db.transaction(s,'readwrite');const st=tx.objectStore(s);keys.forEach(k=>{try{st.delete(k)}catch(e){}});tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error)})}
+function _ibKeyOf(s,v,k){if(k!=null)return String(k);if(!v)return'';return String(s==='categories'?v.name:v.id)}
+function _ibTouch(s,v){try{if(typeof SYNC_STORES==='undefined'||SYNC_STORES.indexOf(s)<0||!v||typeof v!=='object'||_ibCloudApplying)return v;var o=Object.assign({},v);o.__ibUpdatedAt=Date.now();delete o.__ibDeleted;return o}catch(e){return v}}
+function dbPut(s,v){return new Promise((res,rej)=>{const vv=_ibTouch(s,v),key=_ibKeyOf(s,vv);const tx=db.transaction(s,'readwrite');tx.objectStore(s).put(vv);tx.oncomplete=()=>{try{_ibCloudChanged(s,key,false,vv&&vv.__ibUpdatedAt)}catch(e){}res()};tx.onerror=()=>rej(tx.error)})}
+function dbPutAll(s,arr){return new Promise((res,rej)=>{const tx=db.transaction(s,'readwrite');const st=tx.objectStore(s);let touched=false;arr.forEach(v=>{try{const vv=_ibTouch(s,v);st.put(vv);if(vv&&vv.__ibUpdatedAt)touched=true}catch(e){}});tx.oncomplete=()=>{try{if(touched)_ibCloudChanged(s,'*',false,Date.now())}catch(e){}res()};tx.onerror=()=>rej(tx.error)})}
+function dbDelete(s,k){return new Promise((res,rej)=>{const tx=db.transaction(s,'readwrite');tx.objectStore(s).delete(k);tx.oncomplete=()=>{try{_ibCloudChanged(s,String(k),true,Date.now())}catch(e){}res()};tx.onerror=()=>rej(tx.error)})}
+function dbDeleteMany(s,keys){return new Promise((res,rej)=>{const tx=db.transaction(s,'readwrite');const st=tx.objectStore(s);keys.forEach(k=>{try{st.delete(k)}catch(e){}});tx.oncomplete=()=>{try{keys.forEach(k=>_ibCloudChanged(s,String(k),true,Date.now()))}catch(e){}res()};tx.onerror=()=>rej(tx.error)})}
 /* 好友最近一条主线消息（游标逆序，不整仓读取） */
 function dbLastByFriend(fid){return new Promise((res,rej)=>{
   const idx=db.transaction('chatMessages').objectStore('chatMessages').index('byFriend');
@@ -10532,7 +10556,7 @@ function _pwaApply(){try{
     else if(!pw.safe&&has.test(v))vp.setAttribute('content',v.replace(has,''))}
 }catch(e){}}
 /* v14：GUIDE → PWA 教程页的 ib-sw.js 模板下载（与页内展示的模板逐字一致） */
-var _IB_SW_TPL="/* InternalBeyond Mobile — ib-sw.js（Service Worker 模板 · 联网优先，离线回退）\n   与手机端 HTML 放在同一目录，经 HTTPS 访问时页面会自动注册本文件。\n   只接管本站的 GET 请求；发往 AI 服务商 / 中转站的请求原样放行、绝不缓存。 */\nconst IB_CACHE='ib-cache-v2';\nself.addEventListener('install',function(){self.skipWaiting()});\nself.addEventListener('activate',function(e){e.waitUntil(caches.keys().then(function(ks){return Promise.all(ks.filter(function(k){return k!==IB_CACHE}).map(function(k){return caches.delete(k)}))}).then(function(){return self.clients.claim()}))});\nself.addEventListener('fetch',function(e){\n  if(e.request.method!=='GET')return;\n  var u=new URL(e.request.url);\n  if(u.origin!==self.location.origin)return;\n  e.respondWith(fetch(e.request).then(function(r){\n    if(r&&r.ok){var cp=r.clone();caches.open(IB_CACHE).then(function(c){c.put(e.request,cp)})}\n    return r;\n  }).catch(function(){return caches.match(e.request,{ignoreSearch:true}).then(function(m){if(m)return m;throw new Error('offline')})}));\n});";
+var _IB_SW_TPL="/* InternalBeyond Mobile — ib-sw.js（Service Worker 模板 · 联网优先，离线回退）\n   与手机端 HTML 放在同一目录，经 HTTPS 访问时页面会自动注册本文件。\n   只接管本站的 GET 请求；发往 AI 服务商 / 中转站的请求原样放行、绝不缓存。 */\nconst IB_CACHE='ib-cache-v3';\nself.addEventListener('install',function(){self.skipWaiting()});\nself.addEventListener('activate',function(e){e.waitUntil(caches.keys().then(function(ks){return Promise.all(ks.filter(function(k){return k!==IB_CACHE}).map(function(k){return caches.delete(k)}))}).then(function(){return self.clients.claim()}))});\nself.addEventListener('fetch',function(e){\n  if(e.request.method!=='GET')return;\n  var u=new URL(e.request.url);\n  if(u.origin!==self.location.origin)return;\n  e.respondWith(fetch(e.request).then(function(r){\n    if(r&&r.ok){var cp=r.clone();caches.open(IB_CACHE).then(function(c){c.put(e.request,cp)})}\n    return r;\n  }).catch(function(){return caches.match(e.request,{ignoreSearch:true}).then(function(m){if(m)return m;throw new Error('offline')})}));\n});";
 try{var _swb=document.getElementById('pwa-sw-dl');if(_swb)_swb.addEventListener('click',function(){try{var b=new Blob([_IB_SW_TPL],{type:'text/javascript;charset=utf-8'});var a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='ib-sw.js';document.body.appendChild(a);a.click();a.remove();setTimeout(function(){try{URL.revokeObjectURL(a.href)}catch(e){}},400)}catch(e){toast('此环境暂不支持下载')}})}catch(e){}
 /* 工具分区 */
 async function renderApiTools(){
@@ -11120,6 +11144,34 @@ $('ibte-del').addEventListener('click',async()=>{
 /* ═══════════ Data 页 ═══════════ */
 const SYNC_STORES=['about','apiConfigs','chatMessages','chatThreads','chatSummaries','groups','uploadedFiles','memories','autoMemory','apiSettings','calEvents','calNotes','calLedger','posts','categories','letters','blogComments','blogAnnotations','projects','projectFiles','feed']/* v99-m 任务11：补 calLedger——本仓手机端建了但不进导入导出，导致电脑端的日历台账过一趟手机端就丢。手机端界面暂不使用它，但备份必须原样带走再原样交还 */;/* v54-m 扩充互通：分类/信件/留言/批注/ICode 一并往返；v72-m +feed（Beyond 动态） */
 const STORE_CN={about:'名片',apiConfigs:'API 配置',chatMessages:'聊天记录',chatThreads:'话题频道',chatSummaries:'对话摘要',groups:'群聊',uploadedFiles:'上传文件',memories:'记忆库',autoMemory:'Auto Memory',apiSettings:'设置',calEvents:'日历事项',calNotes:'日历便笺',posts:'公开日志',categories:'日志分类',letters:'信件',blogComments:'日志留言',blogAnnotations:'日志批注',projects:'ICode 项目',projectFiles:'ICode 文件',calLedger:'日历台账',feed:'Beyond 动态'};
+/* ═══════════ Cloud Sync：Safari / PWA 加密云同步 ═══════════ */
+const IB_CLOUD_ENDPOINT='https://round-recipe-ea1b.hujinjin0817.workers.dev/sync/v1/items';
+const IB_CLOUD_CFG_KEY='ib_cloud_sync_v1',IB_CLOUD_TOMBS_KEY='ib_cloud_tombs_v1';
+let _ibCloudApplying=false,_ibCloudBusy=false,_ibCloudTimer=null,_ibCloudKey=null,_ibCloudId='';
+function _ibCloudCfg(){try{return Object.assign({enabled:false,endpoint:IB_CLOUD_ENDPOINT,lastRevision:0,lastSyncAt:0,status:'未开启'},JSON.parse(localStorage.getItem(IB_CLOUD_CFG_KEY)||'{}')||{})}catch(e){return{enabled:false,endpoint:IB_CLOUD_ENDPOINT,lastRevision:0,lastSyncAt:0,status:'未开启'}}}
+function _ibCloudSaveCfg(c){try{localStorage.setItem(IB_CLOUD_CFG_KEY,JSON.stringify(c||{}))}catch(e){}}
+function _ibCloudTombs(){try{return JSON.parse(localStorage.getItem(IB_CLOUD_TOMBS_KEY)||'{}')||{}}catch(e){return{}}}
+function _ibCloudSaveTombs(t){try{localStorage.setItem(IB_CLOUD_TOMBS_KEY,JSON.stringify(t||{}))}catch(e){}}
+function _ibCloudB64(u8){var s='';for(var i=0;i<u8.length;i++)s+=String.fromCharCode(u8[i]);return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')}
+function _ibCloudUnb64(s){s=String(s||'').replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';var b=atob(s),u=new Uint8Array(b.length);for(var i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return u}
+async function _ibCloudDigest(text){return _ibCloudB64(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(text))))}
+async function _ibCloudDerive(code){var raw=new TextEncoder().encode(String(code||''));var km=await crypto.subtle.importKey('raw',raw,'PBKDF2',false,['deriveKey']);var salt=new TextEncoder().encode('InternalBeyond-Mobile Cloud Sync v1');var key=await crypto.subtle.deriveKey({name:'PBKDF2',salt:salt,iterations:210000,hash:'SHA-256'},km,{name:'AES-GCM',length:256},false,['encrypt','decrypt']);return{key:key,syncId:(await _ibCloudDigest('sync-id:'+code)).slice(0,43)}}
+async function _ibCloudEnsureKey(){var c=_ibCloudCfg(),code=c.code||'';if(!c.enabled||!code)throw new Error('请先开启云同步并填写同步码');if(_ibCloudKey&&_ibCloudId===c.syncId)return _ibCloudKey;var d=await _ibCloudDerive(code);c.syncId=d.syncId;_ibCloudId=d.syncId;_ibCloudKey=d.key;_ibCloudSaveCfg(c);return d.key}
+async function _ibCloudEncrypt(obj){var key=await _ibCloudEnsureKey(),iv=crypto.getRandomValues(new Uint8Array(12));var plain=new TextEncoder().encode(JSON.stringify(obj));var buf=await crypto.subtle.encrypt({name:'AES-GCM',iv:iv},key,plain);return{nonce:_ibCloudB64(iv),payload:_ibCloudB64(new Uint8Array(buf))}}
+async function _ibCloudDecrypt(item){var key=await _ibCloudEnsureKey(),iv=_ibCloudUnb64(item.nonce),ct=_ibCloudUnb64(item.payload);var buf=await crypto.subtle.decrypt({name:'AES-GCM',iv:iv},key,ct);return JSON.parse(new TextDecoder().decode(buf))}
+function _ibCloudTs(v){if(!v||typeof v!=='object')return Date.now();var x=v.__ibUpdatedAt||v.updatedAt||v.updated||v.lastModified||v.modified||v.timestamp||v.ts||v.created||v.createdAt;if(typeof x==='string'){var t=Date.parse(x);if(t)return t}x=Number(x||0);return x>0?x:Date.now()}
+function _ibCloudChanged(s,id,deleted,ts){try{if(_ibCloudApplying||SYNC_STORES.indexOf(s)<0||!id)return;var t=_ibCloudTombs();if(deleted){t[s+'|'+id]={store:s,id:String(id),updatedAt:ts||Date.now(),deleted:true};_ibCloudSaveTombs(t)}_ibCloudSchedule()}catch(e){}}
+function _ibCloudSetStatus(t){var c=_ibCloudCfg();c.status=t;_ibCloudSaveCfg(c);_ibCloudDraw()}
+function _ibCloudSchedule(){var c=_ibCloudCfg();if(!c.enabled)return;clearTimeout(_ibCloudTimer);_ibCloudTimer=setTimeout(function(){_ibCloudSync().catch(function(){})},3200)}
+async function _ibCloudCollect(){var items=[],tombs=_ibCloudTombs();for(var i=0;i<SYNC_STORES.length;i++){var s=SYNC_STORES[i];try{await dbEach(s,function(v){if(!v||typeof v!=='object')return;var id=_ibKeyOf(s,v);if(!id)return;var o=Object.assign({},v);if(!o.__ibUpdatedAt)o.__ibUpdatedAt=_ibCloudTs(o);items.push({store:s,id:id,updatedAt:o.__ibUpdatedAt,deleted:false,record:o})})}catch(e){}}Object.keys(tombs).forEach(function(k){var x=tombs[k];if(x&&x.store&&x.id)items.push({store:x.store,id:String(x.id),updatedAt:x.updatedAt||Date.now(),deleted:true})});return items}
+async function _ibCloudPayload(items){var out=[];for(var i=0;i<items.length;i++){var it=items[i];if(it.deleted){out.push({store:it.store,id:it.id,updatedAt:it.updatedAt,deleted:true});continue}var enc=await _ibCloudEncrypt(it.record);out.push({store:it.store,id:it.id,updatedAt:it.updatedAt,deleted:false,nonce:enc.nonce,payload:enc.payload})}return out}
+async function _ibCloudFetchRemote(c){var url=(c.endpoint||IB_CLOUD_ENDPOINT)+'?syncId='+encodeURIComponent(c.syncId||'');var r=await fetch(url,{headers:{Accept:'application/json'}}),j=await r.json().catch(function(){return null});if(!r.ok||!j||!j.ok)throw new Error((j&&j.error)||('同步服务 HTTP '+r.status));return j}
+async function _ibCloudApply(items){_ibCloudApplying=true;try{for(var i=0;i<(items||[]).length;i++){var it=items[i];if(!it||SYNC_STORES.indexOf(it.store)<0||!it.id)continue;var local=null;try{local=await dbGet(it.store,it.id)}catch(e){}var lts=local&&local.__ibUpdatedAt?Number(local.__ibUpdatedAt):0;if(lts>Number(it.updatedAt||0))continue;if(it.deleted){try{await dbDelete(it.store,it.id)}catch(e){}continue}var rec=await _ibCloudDecrypt(it);if(!rec||typeof rec!=='object')continue;rec.__ibUpdatedAt=Number(it.updatedAt||Date.now());try{await dbPut(it.store,rec)}catch(e){}}}finally{_ibCloudApplying=false}}
+async function _ibCloudSync(){var c=_ibCloudCfg();if(!c.enabled)return;if(_ibCloudBusy)return;_ibCloudBusy=true;_ibCloudSetStatus('正在同步');try{await _ibCloudEnsureKey();var remote=await _ibCloudFetchRemote(c);await _ibCloudApply(remote.items||[]);var local=await _ibCloudCollect(),body={syncId:c.syncId,baseRevision:remote.revision||0,items:await _ibCloudPayload(local)};var r=await fetch(c.endpoint||IB_CLOUD_ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json',Accept:'application/json'},body:JSON.stringify(body)});var j=await r.json().catch(function(){return null});if(!r.ok||!j||!j.ok)throw new Error((j&&j.error)||('同步服务 HTTP '+r.status));await _ibCloudApply(j.items||[]);c=_ibCloudCfg();c.lastRevision=j.revision||0;c.lastSyncAt=Date.now();c.status='已同步';_ibCloudSaveCfg(c);_ibCloudPruneTombs(j.items||[]);try{_about=null;_mp=null;_mpFromDb=false;_vt=null;_ms=null;_ibt=null;_out=null;_outFromDb=false;_cs=null;_calEvents=[];_calNotes=[];await loadCfgs();await loadMP();renderDataSum();showSec()}catch(e){}_ibCloudDraw()}catch(e){_ibCloudSetStatus('同步失败：'+String(e&&e.message||e).slice(0,80))}finally{_ibCloudBusy=false}}
+function _ibCloudPruneTombs(items){try{var remote={};(items||[]).forEach(function(x){if(x&&x.deleted)remote[x.store+'|'+x.id]=1});var t=_ibCloudTombs(),dirty=false;Object.keys(t).forEach(function(k){if(remote[k]){delete t[k];dirty=true}});if(dirty)_ibCloudSaveTombs(t)}catch(e){}}
+function _ibCloudDraw(){var c=_ibCloudCfg(),on=$('sync-on'),code=$('sync-code'),st=$('sync-status');try{if(on)sw2(on,!!c.enabled);if(code&&document.activeElement!==code)code.value=c.code||'';if(st){var last=c.lastSyncAt?new Date(c.lastSyncAt).toLocaleString('zh-CN'):'—';st.innerHTML='<b>'+esc(c.status||'未开启')+'</b><br>最后同步：'+esc(last)}}catch(e){}}
+function _ibCloudCode(){return 'IB-'+_ibCloudB64(crypto.getRandomValues(new Uint8Array(24)))}
+function _ibCloudBoot(){_ibCloudDraw();var on=$('sync-on'),gen=$('sync-gen'),save=$('sync-save'),now=$('sync-now');if(on)on.addEventListener('click',async function(){var c=_ibCloudCfg();c.enabled=!c.enabled;if(c.enabled&&!c.code)c.code=_ibCloudCode();try{var d=await _ibCloudDerive(c.code);c.syncId=d.syncId;_ibCloudKey=d.key;_ibCloudId=d.syncId}catch(e){}c.endpoint=IB_CLOUD_ENDPOINT;_ibCloudSaveCfg(c);_ibCloudDraw();if(c.enabled)_ibCloudSync().catch(function(){})});if(gen)gen.addEventListener('click',async function(){var c=_ibCloudCfg();c.code=_ibCloudCode();c.enabled=true;var d=await _ibCloudDerive(c.code);c.syncId=d.syncId;c.endpoint=IB_CLOUD_ENDPOINT;_ibCloudKey=d.key;_ibCloudId=d.syncId;_ibCloudSaveCfg(c);_ibCloudDraw();toast('同步码已生成');_ibCloudSync().catch(function(){})});if(save)save.addEventListener('click',async function(){var v=String(($('sync-code')&&$('sync-code').value)||'').trim();if(!v){toast('请先输入同步码');return}var c=_ibCloudCfg();c.code=v;c.enabled=true;var d=await _ibCloudDerive(v);c.syncId=d.syncId;c.endpoint=IB_CLOUD_ENDPOINT;_ibCloudKey=d.key;_ibCloudId=d.syncId;_ibCloudSaveCfg(c);_ibCloudDraw();toast('同步码已保存');_ibCloudSync().catch(function(){})});if(now)now.addEventListener('click',function(){_ibCloudSync().catch(function(){})});document.addEventListener('visibilitychange',function(){if(!document.hidden)_ibCloudSync().catch(function(){})});window.addEventListener('focus',function(){_ibCloudSync().catch(function(){})});window.addEventListener('online',function(){_ibCloudSync().catch(function(){})});setTimeout(function(){_ibCloudSync().catch(function(){})},1200)}
 async function renderDataSum(){
   const box=$('data-counts');box.innerHTML='';
   for(const s of SYNC_STORES){
@@ -11539,7 +11591,7 @@ function _orientApply(){try{
   el=$('ui-bigtouch');if(el)el.addEventListener('click',async function(){var el9=this;try{await loadMP();_mp.ui=_mp.ui||{};_mp.ui.bigTouch=!_mp.ui.bigTouch;sw2(el9,!!_mp.ui.bigTouch);await saveMP();_uiApply();toast(_mp.ui.bigTouch?'触控目标已放大':'触控目标恢复标准')}catch(e){toast('设置保存失败，请重试');try{await loadMP();sw2(el9,!!(_mp.ui&&_mp.ui.bigTouch))}catch(e2){}}});
   setTimeout(function(){try{if(window.IBNative&&window.IBNative.available){var _bg=$('pres-bg');var _row=_bg&&_bg.closest('.tog');if(_row)_row.style.display=''}}catch(e){}},1200);/* v116-p：壳内显露「后台 Presence（App）」开关（桥在文末激活，故延时探测；浏览器 / PWA 保持隐藏） */
 })();
-var IB_VER='v147-p',IB_VER_DATE='2026-08-23';/* v86-m r3：版本号占位——展示于 PWA 卡、写入导出档与运行时 manifest */
+var IB_VER='v148-p',IB_VER_DATE='2026-08-23';/* v86-m r3：版本号占位——展示于 PWA 卡、写入导出档与运行时 manifest */
 (function _appVerDraw(){var e=document.getElementById('app-ver');if(e)e.textContent='InternalBeyond Mobile '+IB_VER+'（'+IB_VER_DATE+'）'})();
 function _lkVeilOff(){try{var v=document.getElementById('lk-preveil');if(v){v.classList.add('off');setTimeout(function(){try{v.remove()}catch(e){}},420)}}catch(e){}}/* fix-r4：预遮罩揭幕（任务 8） */
 async function _lkBoot(){try{await loadBgs()}catch(e){}var lk=_lkCfg();try{localStorage.setItem('ib_lockOn',lk&&lk.on?'1':'0')}catch(e){}/* v101-m：启动后把 DB 真值回写同步镜像 */if(lk&&lk.on)_lkShow();else _lkVeilOff()}
@@ -11603,6 +11655,7 @@ function _lkPatternSheet(){/* 两次绘制确认——自绘小卡覆盖层，�
   try{await deskApplyLayout()}catch(e){}/* fix-r4：启动时序修复——桌面挂件显隐此前在 DB 就绪前抢跑、读到空配置，被隐藏的项开机复现（任务 7） */
   try{await _lkBoot()}catch(e){}try{_lkStateDraw()}catch(e){}/* v86-m：锁屏——_mp 就绪后立即上锁并回填设置卡（任务 2） */
   navTo('profile');
+  try{_ibCloudBoot()}catch(e){}/* v148-p：Safari 网页版与 iPhone PWA 使用不同存储容器，启动后走客户端加密云同步桥接。 */
   }catch(e){/* fix-r5：init 主体兜底——loadMP/loadAbout/loadCfgs/_uiApply 任一未捕获异常会让 _lkBoot 跑不到、z-index 4001 的 #lk-preveil 永久盖屏（纯色白屏无提示）。失败时报错并尽量继续揭幕/导航；不盲撤遮罩以免 DB 故障时绕过图案锁 */
     console.error('[IB] init 失败',e);
     try{toast('启动异常：'+String(e&&e.message||e).slice(0,80))}catch(x0){}
@@ -18269,3 +18322,4 @@ window.IBNative=IBN;
 </script>
 </body>
 </html>
+
