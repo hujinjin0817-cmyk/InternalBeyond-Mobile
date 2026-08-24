@@ -3258,6 +3258,7 @@ self.addEventListener(&#x27;fetch&#x27;,function(e){
     <div class="ma-inforow"><div class="ma-info"><div class="ma-t" id="ma-t">Music</div><div class="ma-s" id="ma-s">—</div></div><button class="ma-btn ma-mini" id="ma-mate" title="一起听"><svg viewBox="0 0 24 24"><path d="M12 20.4S4.6 15.9 2.9 11.6C1.7 8.5 3.5 5.6 6.4 5.2c1.9-.26 3.7.62 4.8 2.15C12.3 5.82 14.1 4.94 16 5.2c2.9.4 4.7 3.3 3.5 6.4-1.7 4.3-9.1 8.8-9.1 8.8z"/></svg></button></div>
     <div class="ma-src" id="ma-src"><button class="on" data-src="netease">网易云</button><button data-src="local">本地音乐</button></div>
     <div class="ma-search" id="ma-search"><input id="ma-search-input" type="search" placeholder="搜索歌曲或歌手"><button id="ma-search-btn">搜索</button></div>
+    <div class="ma-cloud-tools" id="ma-cloud-tools"><button data-act="playlists">歌单</button><button data-act="liked">红心</button><button data-act="like">收藏</button><button data-act="queue">列表</button></div>
     <div class="ma-results" id="ma-results"></div>
     <div class="ma-lyr" id="ma-lyr"></div>
   </div>
@@ -13285,7 +13286,7 @@ function _vmToggle(el,v){
 /* ═══ 进阶指令（记忆库检索 / 日历写入）：与电脑端共用 apiSettings/advInstr 一条记录 ═══ */
 const _MEMSEARCH_INSTR_BLOCK='\n\n【记忆库检索】你可以检索记忆库来核实过往信息。\n用法：<ws_mem_search q="关键词" />\n说明：\n- q 填 1–4 个关键词（空格分隔），系统在对你可见的记忆条目与你的记忆档案中匹配，命中内容在下一条消息回传给你。\n- 仅在对话涉及过往的人、事件或约定，或感到好奇时调用检索。\n- 不要编造检索结果——等系统回传。';
 const _MEMWRITE_INSTR_BLOCK='\n\n【记忆库写入】把值得记住的事写进记忆库：\n<ws_mem_write>记忆内容</ws_mem_write>\n- 写我们之间发生的事——经历、对话里的时刻、共同的记忆，用你自己的第一人称口吻写；不是对我的分析或画像，长期背景、偏好与指令属于记忆档案，不写在这里。\n- 每条不超过 600 字（超出会被截断）；每条回复最多写 3 次。\n- 写下的条目只有你自己能看到；我可以在 Memory 页查看、编辑或删除。\n- 尽量在标签上附 title 与 domain；其余参数拿不准就省略：<ws_mem_write title="标题" domain="领域" importance="1-10" valence="0-1" arousal="0-1" tags="标签1,标签2">…</ws_mem_write>——title 这条记忆的名字（20 字内，像日记标题；省略则截取正文开头凑数）、domain 归类，从 情感/日常/创作/思考 中四选一（省略按 日常）、importance 重要程度（默认 5）、valence 情绪效价（0 负面～1 正面）、arousal 情绪强度（0 平静～1 强烈）、tags 至多 5 枚。\n- 只记真正值得回忆的事，多数对话无需写入。';/* v124-p：#3 精细化改写（用户拍板四点：口吻统一、600 字/条、3 次/回复、仅写入者自己可见）；执行器口径不变，随 cfg.memWrite（每 AI）整块注入 */
-const _MUSIC_INSTR_BLOCK_M='【播放器】当前对话需要放歌、换歌或暂停时，可用：\n<ws_music op="play" q="歌名"/> 播放（q 省略则继续播放，提供时模糊匹配歌单）\n<ws_music op="pause"/> 暂停　<ws_music op="next"/> 下一首　<ws_music op="prev"/> 上一首\n每条回复最多 1 个播放器指令；正在播放的曲目与歌单会在需要时作为参考资料提供。不要为了展示能力主动切歌。';/* v88-m 第二刀①：控制协议从音乐 Tail 上移 System（原随 12 首歌名每轮重复注入）——开关切换后重建一次缓存即恢复命中 */
+const _MUSIC_INSTR_BLOCK_M='【播放器】当前对话需要放歌、换歌或暂停时，可用：\n<ws_music op="play" q="歌名或歌手"/> 播放（q 省略则继续播放；提供 q 时先匹配本地歌单，找不到会自动搜索网易云并播放）\n<ws_music op="pause"/> 暂停　<ws_music op="next"/> 下一首　<ws_music op="prev"/> 上一首\n每条回复最多 1 个播放器指令；用户说“播放/想听/点一首”时应直接调用播放器，不要只口头询问。不要为了展示能力主动切歌。';/* v88-m 第二刀①：控制协议从音乐 Tail 上移 System（原随 12 首歌名每轮重复注入）——开关切换后重建一次缓存即恢复命中 */
 /* v89-m：_WEBSEARCH_NOTE_M 已按用户决定删除（联网搜索不再附带使用边界说明） */
 const _CALWRITE_INSTR_BLOCK='\n\n【日历写入】你可以替对方管理日历事项，每条回复最多 2 次。\n标签：\n<ws_cal_list/>\n<ws_cal_add kind="类型" date="YYYY-MM-DD" title="标题" end="YYYY-MM-DD" note="备注" />\n<ws_cal_edit id="事项id" date="新日期" title="新标题" note="新备注" />\n<ws_cal_del id="事项id" />\n<ws_cal_meet date="YYYY-MM-DD" />\n字段说明：\n- ws_cal_list 查询你有权限看到的全部日程，第一条为与对方的相遇纪念日，逐条附 id，结果在下一条消息回传。\n- kind：anniv（纪念日）、birthday（生日）、plan（计划）、memo（记录）。纪念日与生日按年重复，计划与记录为单次。\n- date：必填，YYYY-MM-DD 格式。\n- title：必填，事项标题（40字内）。\n- end：选填，仅 plan / memo 有效，标记结束日期。\n- note：选填，备注（120字内），会随事项一并提供给有权限的 AI。\n- id：编辑或删除时必填，先用 <ws_cal_list/> 查询获取（或取自上一轮回传），不要臆造。\n- ws_cal_meet 用于更正你与对方的相遇纪念日，仅在对方明确告知日期时使用。\n执行结果在下一条消息回传给你。';
 let _advCache=null;
@@ -13815,9 +13816,12 @@ async function _pwLoadMode(){
 async function _pwSync(){/* Desk 渲染包装器调用：按库里真值刷曲库与面板 */
   await _pwLoadMode();await _pwLoad();_pwPaint();
 }
-const NETEASE_PROXY='https://round-recipe-ea1b.hujinjin0817.workers.dev/netease';
+const NETEASE_WORKER='https://round-recipe-ea1b.hujinjin0817.workers.dev';
+const NETEASE_PROXY=NETEASE_WORKER+'/netease';
+const NETEASE_API_BASE=NETEASE_WORKER+'/api';
 async function _neteaseApi(path,qs){
-  var q=Object.assign({},qs||{}),u=NETEASE_PROXY+path+'?'+Object.keys(q).map(function(k){return encodeURIComponent(k)+'='+encodeURIComponent(q[k])}).join('&');
+  var base=path.indexOf('/api/')===0?NETEASE_WORKER:NETEASE_PROXY;
+  var q=Object.assign({},qs||{}),u=base+path+'?'+Object.keys(q).map(function(k){return encodeURIComponent(k)+'='+encodeURIComponent(q[k])}).join('&');
   var r=await fetch(u,{headers:{Accept:'application/json'}});
   var j=await r.json().catch(function(){return null});
   if(!r.ok||!j)throw new Error((j&&j.error)||('网易云接口 HTTP '+r.status));
@@ -13829,23 +13833,54 @@ async function _neteaseSearchM(q){
 }
 async function _neteasePlayableM(rec){
   if(!rec||rec.src!=='netease')return rec;
-  if(rec.playUrl)return rec;
-  var j=await _neteaseApi('/url',{id:rec.neteaseId||rec.id});
+  if(rec.playUrl&&String(rec.playUrl).indexOf(NETEASE_API_BASE+'/music/proxy?url=')===0)return rec;
+  if(rec.rawPlayUrl&&!rec.playUrl){
+    rec.playUrl=NETEASE_API_BASE+'/music/proxy?url='+encodeURIComponent(rec.rawPlayUrl);
+    try{await dbPut('music',rec)}catch(e){}
+    return rec;
+  }
+  if(rec.playUrl&&/^https?:\/\//i.test(String(rec.playUrl))){
+    rec.rawPlayUrl=rec.playUrl;
+    rec.playUrl=NETEASE_API_BASE+'/music/proxy?url='+encodeURIComponent(rec.rawPlayUrl);
+    try{await dbPut('music',rec)}catch(e){}
+    return rec;
+  }
+  var j=await _neteaseApi('/api/music/url',{id:rec.neteaseId||rec.id});
   if(!j||!j.url)throw new Error((j&&j.message)||'当前歌曲暂无可用播放源');
-  rec.playUrl=j.url;rec.playUrlAt=Date.now();
+  rec.rawPlayUrl=j.url;
+  rec.playUrl=NETEASE_API_BASE+'/music/proxy?url='+encodeURIComponent(j.url);
+  rec.playUrlAt=Date.now();
   try{await dbPut('music',rec)}catch(e){}
   return rec
 }
 async function _neteaseLyricsM(rec){
   if(!rec||rec.src!=='netease'||rec.lyricsAttemptedAt)return rec;
   try{
-    var j=await _neteaseApi('/lyric',{id:rec.neteaseId||rec.id}),txt=(j&&j.lyric)||'';
+    var j=await _neteaseApi('/api/music/lyric',{id:rec.neteaseId||rec.id}),txt=(j&&j.lyric)||'';
     rec.lyrics=txt?IBMusicCore.parseLyrics(txt,(rec.title||rec.name||'')+'.lrc'):{source:'netease',segments:[],instrumental:true};
     rec.lyrics.source='netease';
   }catch(e){rec.lyrics={source:'netease',segments:[],instrumental:true}}
   rec.lyricsAttemptedAt=Date.now();
   try{await dbPut('music',rec)}catch(e){}
   return rec
+}
+async function _neteaseAccountM(){
+  return _neteaseApi('/api/netease/account',{})
+}
+async function _neteasePlaylistsM(){
+  var j=await _neteaseApi('/api/netease/playlists',{});
+  return j&&Array.isArray(j.playlists)?j.playlists:[]
+}
+async function _neteasePlaylistSongsM(id){
+  var j=await _neteaseApi('/api/netease/playlist/detail',{id:id});
+  return j&&Array.isArray(j.tracks)?j.tracks:[]
+}
+async function _neteaseLikedIdsM(){
+  var j=await _neteaseApi('/api/netease/likelist',{});
+  return j&&Array.isArray(j.ids)?j.ids.map(String):[]
+}
+async function _neteaseLikeM(id,like){
+  return _neteaseApi('/api/netease/like',{id:id,like:like!==false})
 }
 async function _neteaseAddTrackM(song,playNow){
   var id='netease_'+String(song&&song.id||'').replace(/[^\d]/g,'');
@@ -13862,6 +13897,15 @@ async function _neteaseAddTrackM(song,playNow){
   await _pwLoad();var ix=_pw.list.findIndex(function(x){return x&&x.id===id});
   if(playNow&&ix>=0)await _pwPlayIdx(ix);else{_pwPaint();_pwListDraw()}
   return rec
+}
+async function _neteaseSearchPlayM(q){
+  var songs=await _neteaseSearchM(q);
+  if(!songs.length)throw new Error('没有搜到「'+q+'」');
+  var lastErr=null;
+  for(var i=0;i<Math.min(5,songs.length);i++){
+    try{return await _neteaseAddTrackM(songs[i],true)}catch(e){lastErr=e}
+  }
+  throw lastErr||new Error('当前歌曲暂无可用播放源')
 }
 async function _pwAddFiles(files){
   var fs=Array.prototype.slice.call(files||[]).filter(function(f){return f&&f.size});
@@ -14212,15 +14256,17 @@ function buildMusicTail(userMsg,fid){/* v88-m 第二刀①：Tail 只留数据�
   if(ma.ctl&&typeof _musicRelatedM==='function'&&_musicRelatedM(userMsg,rec)){var names=[];try{(_pw.list||[]).slice(0,12).forEach(function(it){names.push('《'+String(it.name||it.title||'').replace(/\.[a-z0-9]+$/i,'')+'》')})}catch(e){}if(names.length)seg.push('【当前歌单】'+names.join(''))}
   return seg.join('\n\n');
 }
-function _mtExec(op,q){
+async function _mtExec(op,q){
   try{
     if(!_pw)return{ok:false,label:'播放器',detail:'播放器不可用'};
     if(op==='play'&&q){
+      await _pwLoad();
       var kw=String(q).toLowerCase(),idx=-1;
       (_pw.list||[]).some(function(it,i){var n=String(it.name||it.title||'').toLowerCase();if(n.indexOf(kw)!==-1){idx=i;return true}return false});
-      if(idx<0)return{ok:false,label:'播放歌曲',detail:'歌单里没有找到「'+q+'」'};
-      if(typeof _pwPlayIdx==='function')_pwPlayIdx(idx);
-      return{ok:true,label:'播放歌曲',detail:'《'+String((_pw.list[idx]||{}).name||q).replace(/\.[a-z0-9]+$/i,'')+'》'};
+      var rec=null;
+      if(idx>=0){if(typeof _pwPlayIdx==='function')await _pwPlayIdx(idx);rec=_pw.list[idx]}
+      else rec=await _neteaseSearchPlayM(q);
+      return{ok:true,label:'播放歌曲',detail:'《'+String((rec&&(_pwName(rec)||rec.name))||q).replace(/\.[a-z0-9]+$/i,'')+'》'};
     }
     if(op==='play'){
       if(_pw.idx<0&&(_pw.list||[]).length&&typeof _pwPlayIdx==='function'){_pwPlayIdx(0);return{ok:true,label:'播放',detail:'从歌单第一首开始'}}
@@ -15088,7 +15134,7 @@ async function procIbOps(cfg,m){
     if(music){
       var ma=(_mp&&_mp.musicAi)||{};
       if(!ma.ctl)results.push({ok:false,label:'播放器',detail:'未开启「允许 AI 控制播放器」'});
-      else results.push(_mtExec(music.op,music.q));
+      else results.push(await _mtExec(music.op,music.q));
     }
     if(wantWx){
       await loadMP();
@@ -17162,6 +17208,10 @@ body.theme-infernal .ma-src button.on{background:rgba(255,255,255,.16);color:#ff
 .ma-search input{flex:1;min-width:0;height:36px;border:1px solid rgba(255,255,255,.16);border-radius:14px;background:rgba(255,255,255,.12);color:#fff;padding:0 12px;outline:0;font:500 .86rem/1 var(--font-ui,inherit);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px)}
 .ma-search input::placeholder{color:rgba(255,255,255,.38)}
 .ma-search button{height:36px;border:0;border-radius:14px;padding:0 14px;background:rgba(255,255,255,.92);color:#172133;font:700 .82rem/1 var(--font-ui,inherit)}
+.ma-cloud-tools{display:flex;gap:7px;width:100%;max-width:520px;margin:-2px 0 10px}
+.ma-cloud-tools button{flex:1;min-width:0;height:32px;border:1px solid rgba(255,255,255,.16);border-radius:13px;background:rgba(255,255,255,.11);color:rgba(255,255,255,.72);font:650 .72rem/1 var(--font-ui,inherit);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ma-cloud-tools button:active{transform:scale(.97)}
+body.theme-infernal .ma-cloud-tools button{background:rgba(255,255,255,.08);color:rgba(255,255,255,.68)}
 .ma-results{display:none;max-height:188px;overflow:auto;margin:-2px 0 10px;border-radius:18px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.14);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px)}
 .ma-results.show{display:block}
 .ma-ns-row{display:grid;grid-template-columns:42px minmax(0,1fr) 34px;gap:10px;align-items:center;padding:9px 10px;border-bottom:1px solid rgba(255,255,255,.09)}
@@ -17172,6 +17222,17 @@ body.theme-infernal .ma-src button.on{background:rgba(255,255,255,.16);color:#ff
 .ma-ns-sub{margin-top:2px;font-size:.68rem;color:rgba(255,255,255,.48);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ma-ns-play{width:34px;height:34px;border:0;border-radius:50%;background:rgba(255,255,255,.9);color:#172133;display:flex;align-items:center;justify-content:center}
 .ma-results .empty{padding:14px;text-align:center;color:rgba(255,255,255,.5);font-size:.78rem}
+@media (max-width:430px){
+  #music-app{overflow:hidden;max-width:100vw}
+  #music-app .ma-cvbg{inset:0;transform:none}
+  .ma-body{padding-left:14px;padding-right:14px}
+  .ma-art{max-width:72vw;overflow:hidden}
+  .ma-search{width:100%;gap:7px}
+  .ma-search input{height:34px;font-size:.8rem;padding:0 10px}
+  .ma-search button{height:34px;flex:0 0 54px;padding:0;font-size:.76rem}
+  .ma-src{width:100%}
+  .ma-src button{font-size:.72rem}
+}
 .ma-scrim,.ca-scrim{position:absolute;inset:0;background:var(--scrim);z-index:0}
 .ma-head,.ca-head{position:relative;z-index:2;flex:none;display:flex;align-items:center;gap:8px;margin:calc(8px + var(--sat)) 10px 0;height:50px;padding:0 6px;border-radius:17px;background:var(--glass);border:1px solid var(--glass-line);backdrop-filter:blur(22px) saturate(1.4);-webkit-backdrop-filter:blur(22px) saturate(1.4)}
 .ma-title{flex:1;text-align:center;font-family:var(--disp);font-weight:300;font-size:0.8rem;letter-spacing:0.3em;text-transform:uppercase;color:var(--tx2);padding-left:0.3em}
@@ -17887,6 +17948,7 @@ var _oldProcIbOpsM=procIbOps;procIbOps=async function(cfg,m){var raw=String(m&&m
     $i('ma-addtop').addEventListener('click',function(){if(window._pwPickFiles)window._pwPickFiles('audio');else{var f=$('pw-file');if(f){try{f.value=''}catch(e){}f.click()}}});
     var src=$i('ma-src');if(src)src.addEventListener('click',function(e){var b=e.target.closest('button[data-src]');if(!b)return;_maSource=b.dataset.src==='local'?'local':'netease';_maSourceDraw();if(_maSource==='local'){openSheet('sheet-music');try{_pwListDraw()}catch(x){}}});
     var sb=$i('ma-search-btn'),si=$i('ma-search-input');if(sb)sb.addEventListener('click',_maNeteaseSearch);if(si)si.addEventListener('keydown',function(e){if(e.key==='Enter')_maNeteaseSearch()});
+    var ct=$i('ma-cloud-tools');if(ct)ct.addEventListener('click',function(e){var b=e.target.closest('button[data-act]');if(!b)return;_maSource='netease';_maSourceDraw();if(b.dataset.act==='playlists')_maCloudPlaylists();else if(b.dataset.act==='liked')_maCloudLiked();else if(b.dataset.act==='like')_maCloudLikeCurrent();else _maCloudQueue()});
     $i('ma-mate').addEventListener('click',_maMateBtn);
     $i('ma-play').addEventListener('click',function(){var b=$('pw-play');if(b)b.click();setTimeout(function(){_maPaint()},80)});
     $i('ma-prev').addEventListener('click',function(){var b=$('pw-prev');if(b)b.click()});
@@ -17912,7 +17974,81 @@ var _oldProcIbOpsM=procIbOps;procIbOps=async function(cfg,m){var raw=String(m&&m
   function _maSourceDraw(){
     var src=$i('ma-src');if(src)Array.prototype.forEach.call(src.querySelectorAll('button'),function(b){b.classList.toggle('on',b.dataset.src===_maSource)});
     var show=_maSource!=='local';
-    var s=$i('ma-search'),r=$i('ma-results');if(s)s.style.display=show?'flex':'none';if(r){r.classList.toggle('show',show&&r.childNodes.length>0);if(!show)r.innerHTML=''}
+    var s=$i('ma-search'),r=$i('ma-results'),c=$i('ma-cloud-tools');if(s)s.style.display=show?'flex':'none';if(c)c.style.display=show?'flex':'none';if(r){r.classList.toggle('show',show&&r.childNodes.length>0);if(!show)r.innerHTML=''}
+  }
+  function _maRow(song,opt){
+    opt=opt||{};
+    var row=document.createElement('div');row.className='ma-ns-row';
+    var cv=document.createElement('div');cv.className='ma-ns-cover';if(song.pic||song.coverImgUrl){var im=document.createElement('img');im.src=song.pic||song.coverImgUrl;im.alt='';cv.appendChild(im)}else cv.textContent=opt.icon||'♪';
+    var mid=document.createElement('div');mid.style.minWidth='0';
+    mid.innerHTML='<div class="ma-ns-title">'+esc(song.name||song.song_name||'')+'</div><div class="ma-ns-sub">'+esc(opt.sub||((song.artist||'')+(song.album?' · '+song.album:''))||'')+'</div>';
+    var bt=document.createElement('button');bt.className='ma-ns-play';bt.type='button';bt.innerHTML=opt.chev?'›':'<svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M8.5 5.8v12.4L18.5 12z"/></svg>';
+    row.appendChild(cv);row.appendChild(mid);row.appendChild(bt);
+    return row
+  }
+  async function _maCloudQueue(){
+    await _pwLoad();
+    var box=$i('ma-results');if(!box)return;
+    box.classList.add('show');box.innerHTML='';
+    var list=(_pw.list||[]).filter(function(x){return x&&x.src==='netease'});
+    if(!list.length){box.innerHTML='<div class="empty">歌曲列表为空</div>';return}
+    list.forEach(function(s){
+      var row=_maRow({name:_pwName(s),artist:s.artist,album:s.album,pic:s.cover});
+      row.addEventListener('click',async function(){var ix=_pw.list.findIndex(function(x){return x.id===s.id});if(ix>=0){await _pwPlayIdx(ix);_maPaint(true)}});
+      box.appendChild(row);
+    });
+  }
+  async function _maCloudPlaylists(){
+    var box=$i('ma-results');if(!box)return;
+    box.classList.add('show');box.innerHTML='<div class="empty">读取歌单中…</div>';
+    try{
+      var pls=await _neteasePlaylistsM();box.innerHTML='';
+      if(!pls.length){box.innerHTML='<div class="empty">没有读取到网易云歌单</div>';return}
+      pls.forEach(function(pl){
+        var row=_maRow({name:pl.name,coverImgUrl:pl.coverImgUrl},{sub:(pl.trackCount||0)+' 首',chev:true,icon:'歌'});
+        row.addEventListener('click',function(){_maCloudPlaylistSongs(pl)});
+        box.appendChild(row);
+      });
+    }catch(e){box.innerHTML='<div class="empty">需要有效网易云 Cookie 才能读取账号歌单</div>';toast(String(e&&e.message||'歌单读取失败'))}
+  }
+  async function _maCloudPlaylistSongs(pl){
+    var box=$i('ma-results');if(!box)return;
+    box.classList.add('show');box.innerHTML='<div class="empty">读取「'+esc(pl.name||'歌单')+'」…</div>';
+    try{
+      var songs=await _neteasePlaylistSongsM(pl.id);box.innerHTML='';
+      if(!songs.length){box.innerHTML='<div class="empty">这个歌单暂时没有可显示歌曲</div>';return}
+      songs.forEach(function(s){
+        var row=_maRow(s);
+        row.addEventListener('click',async function(){try{await _neteaseAddTrackM(s,true);_maPaint(true)}catch(e){toast(String(e&&e.message||'当前歌曲暂无可用播放源'))}});
+        box.appendChild(row);
+      });
+    }catch(e){box.innerHTML='<div class="empty">歌单歌曲读取失败</div>';toast(String(e&&e.message||'歌单歌曲读取失败'))}
+  }
+  async function _maCloudLiked(){
+    var box=$i('ma-results');if(!box)return;
+    box.classList.add('show');box.innerHTML='<div class="empty">读取红心歌曲中…</div>';
+    try{
+      var ids=await _neteaseLikedIdsM();
+      if(!ids.length){box.innerHTML='<div class="empty">没有读取到红心歌曲</div>';return}
+      var tracks=[];for(var i=0;i<Math.min(40,ids.length);i++){
+        try{var d=await _neteaseApi('/detail',{id:ids[i]});if(d&&d.song)tracks.push(d.song)}catch(e){}
+      }
+      box.innerHTML='';
+      if(!tracks.length){box.innerHTML='<div class="empty">红心列表读取成功，但歌曲详情暂不可用</div>';return}
+      tracks.forEach(function(s){
+        var row=_maRow(s);
+        row.addEventListener('click',async function(){try{await _neteaseAddTrackM(s,true);_maPaint(true)}catch(e){toast(String(e&&e.message||'当前歌曲暂无可用播放源'))}});
+        box.appendChild(row);
+      });
+    }catch(e){box.innerHTML='<div class="empty">需要有效网易云 Cookie 才能读取红心</div>';toast(String(e&&e.message||'红心读取失败'))}
+  }
+  async function _maCloudLikeCurrent(){
+    var cur=_maCur();
+    if(!cur||cur.src!=='netease'){toast('先播放一首网易云歌曲');return}
+    try{
+      await _neteaseLikeM(cur.neteaseId||String(cur.id||'').replace(/[^\d]/g,''),true);
+      toast('已加入网易云红心');
+    }catch(e){toast(String(e&&e.message||'收藏失败，需要有效网易云 Cookie'))}
   }
   async function _maNeteaseSearch(){
     _maSource='netease';_maSourceDraw();
@@ -17923,11 +18059,7 @@ var _oldProcIbOpsM=procIbOps;procIbOps=async function(cfg,m){var raw=String(m&&m
       var songs=await _neteaseSearchM(q);box.innerHTML='';
       if(!songs.length){box.innerHTML='<div class="empty">没有搜到歌曲</div>';return}
       songs.forEach(function(s){
-        var row=document.createElement('div');row.className='ma-ns-row';
-        var cv=document.createElement('div');cv.className='ma-ns-cover';if(s.pic){var im=document.createElement('img');im.src=s.pic;im.alt='';cv.appendChild(im)}else cv.textContent='♪';
-        var mid=document.createElement('div');mid.style.minWidth='0';mid.innerHTML='<div class="ma-ns-title">'+esc(s.name||'')+'</div><div class="ma-ns-sub">'+esc((s.artist||'')+(s.album?' · '+s.album:''))+'</div>';
-        var bt=document.createElement('button');bt.className='ma-ns-play';bt.type='button';bt.innerHTML='<svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M8.5 5.8v12.4L18.5 12z"/></svg>';
-        row.appendChild(cv);row.appendChild(mid);row.appendChild(bt);
+        var row=_maRow(s);
         row.addEventListener('click',async function(){try{await _neteaseAddTrackM(s,true);box.classList.remove('show');box.innerHTML='';input.blur();_maPaint(true)}catch(e){toast(String(e&&e.message||'当前歌曲暂无可用播放源'))}});
         box.appendChild(row);
       });

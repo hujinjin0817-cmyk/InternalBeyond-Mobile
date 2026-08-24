@@ -229,6 +229,10 @@ function neteaseHeaders(env) {
   return headers;
 }
 
+function hasNeteaseCookie(env) {
+  return !!(env && typeof env.NETEASE_COOKIE === "string" && env.NETEASE_COOKIE.trim());
+}
+
 function artistNames(list) {
   return (Array.isArray(list) ? list : [])
     .map((item) => item && item.name)
@@ -262,6 +266,53 @@ async function fetchNeteaseJson(path, env) {
   return { upstream, body };
 }
 
+async function fetchNeteaseText(target, env, init = {}) {
+  const upstream = await fetch(target, {
+    ...init,
+    headers: {
+      ...neteaseHeaders(env),
+      ...(init.headers || {}),
+    },
+    redirect: "follow",
+  });
+  const text = await upstream.text();
+  let body;
+  try {
+    body = JSON.parse(text);
+  } catch (_) {
+    body = { raw: text };
+  }
+  return { upstream, body, text };
+}
+
+function normalizePlaylist(pl) {
+  return {
+    id: String((pl && pl.id) || ""),
+    name: (pl && pl.name) || "",
+    description: (pl && pl.description) || "",
+    coverImgUrl: (pl && pl.coverImgUrl) || "",
+    trackCount: Number((pl && pl.trackCount) || 0),
+    subscribed: !!(pl && pl.subscribed),
+  };
+}
+
+function normalizeTrack(song) {
+  const album = song && (song.al || song.album || {});
+  return {
+    id: String((song && song.id) || ""),
+    name: (song && song.name) || "",
+    artist: artistNames((song && (song.ar || song.artists)) || []),
+    album: album.name || "",
+    pic: album.picUrl || "",
+  };
+}
+
+function csrfFromCookie(env) {
+  const cookie = env && typeof env.NETEASE_COOKIE === "string" ? env.NETEASE_COOKIE : "";
+  const m = cookie.match(/(?:^|;\s*)__csrf=([^;]+)/);
+  return m ? decodeURIComponent(m[1]) : "";
+}
+
 async function handleNetease(request, env) {
   const url = new URL(request.url);
   if (request.method !== "GET") {
@@ -278,6 +329,18 @@ async function handleNetease(request, env) {
     );
     const songs = (((body || {}).result || {}).songs || []).map(normalizeNeteaseSong).filter((s) => s.id);
     return jsonCors(request, { ok: true, songs });
+  }
+
+  if (url.pathname === "/api/music/search") {
+    const q = (url.searchParams.get("q") || "").trim().slice(0, 80);
+    if (!q) return jsonCors(request, []);
+    const limit = Math.max(1, Math.min(30, Number(url.searchParams.get("limit")) || 10));
+    const { body } = await fetchNeteaseJson(
+      `/api/search/get?s=${encodeURIComponent(q)}&type=1&limit=${limit}`,
+      env
+    );
+    const songs = (((body || {}).result || {}).songs || []).map(normalizeNeteaseSong).filter((s) => s.id);
+    return jsonCors(request, songs);
   }
 
   if (url.pathname === "/netease/detail") {
@@ -305,6 +368,22 @@ async function handleNetease(request, env) {
     });
   }
 
+  if (url.pathname === "/api/music/url") {
+    const id = (url.searchParams.get("id") || "").replace(/[^\d]/g, "");
+    if (!id) return jsonCors(request, { error: "missing id" }, { status: 400 });
+    const { body } = await fetchNeteaseJson(
+      `/api/song/enhance/player/url?id=${id}&ids=%5B${id}%5D&br=320000`,
+      env
+    );
+    const item = ((body || {}).data || [])[0] || {};
+    const playUrl = item.url ? String(item.url).replace(/^http:\/\//i, "https://") : "";
+    return jsonCors(request, {
+      url: playUrl || null,
+      code: item.code || 0,
+      message: playUrl ? "" : "当前歌曲暂无可用播放源",
+    });
+  }
+
   if (url.pathname === "/netease/lyric") {
     const id = (url.searchParams.get("id") || "").replace(/[^\d]/g, "");
     if (!id) return jsonCors(request, { ok: false, error: "Missing id" }, { status: 400 });
@@ -314,6 +393,97 @@ async function handleNetease(request, env) {
       lyric: (((body || {}).lrc || {}).lyric || ""),
       tlyric: (((body || {}).tlyric || {}).lyric || ""),
     });
+  }
+
+  if (url.pathname === "/api/music/lyric") {
+    const id = (url.searchParams.get("id") || "").replace(/[^\d]/g, "");
+    if (!id) return jsonCors(request, { error: "missing id" }, { status: 400 });
+    const { body } = await fetchNeteaseJson(`/api/song/lyric?id=${id}&lv=1&kv=1&tv=-1`, env);
+    return jsonCors(request, {
+      lyric: (((body || {}).lrc || {}).lyric || ""),
+      tlyric: (((body || {}).tlyric || {}).lyric || ""),
+    });
+  }
+
+  if (url.pathname === "/api/music/proxy") {
+    const raw = url.searchParams.get("url") || "";
+    let target;
+    try {
+      target = new URL(raw);
+    } catch (_) {
+      return withCors(request, "missing url", { status: 400 });
+    }
+    if (!/^https?:$/.test(target.protocol) || !/music\.126\.net$|music\.163\.com$/i.test(target.hostname)) {
+      return withCors(request, "audio host is not allowed", { status: 403 });
+    }
+    const audioHeaders = {
+      "User-Agent": neteaseHeaders(env)["User-Agent"],
+      Referer: "https://music.163.com/",
+    };
+    const range = request.headers.get("Range");
+    if (range) audioHeaders.Range = range;
+    const upstream = await fetch(target.toString(), {
+      headers: audioHeaders,
+    });
+    const headers = filteredResponseHeaders(upstream, request);
+    headers.set("Content-Type", upstream.headers.get("Content-Type") || "audio/mpeg");
+    headers.set("Accept-Ranges", upstream.headers.get("Accept-Ranges") || "bytes");
+    return new Response(upstream.body, { status: upstream.status, headers });
+  }
+
+  if (url.pathname === "/api/netease/account") {
+    if (!hasNeteaseCookie(env)) return jsonCors(request, { ok: false, error: "NETEASE_COOKIE is not configured" }, { status: 401 });
+    const { body } = await fetchNeteaseText(`${NETEASE_API}/api/nuser/account/get`, env);
+    const profile = (body && (body.profile || (body.account && body.account.profile))) || null;
+    return jsonCors(request, { ok: !!profile, profile });
+  }
+
+  if (url.pathname === "/api/netease/playlists") {
+    if (!hasNeteaseCookie(env)) return jsonCors(request, { ok: false, error: "NETEASE_COOKIE is not configured" }, { status: 401 });
+    const uid = (url.searchParams.get("uid") || "").replace(/[^\d]/g, "");
+    let realUid = uid;
+    if (!realUid) {
+      const acc = await fetchNeteaseText(`${NETEASE_API}/api/nuser/account/get`, env);
+      realUid = String(((acc.body || {}).profile || {}).userId || "");
+    }
+    if (!realUid) return jsonCors(request, { ok: false, error: "NetEase account is not logged in" }, { status: 401 });
+    const { body } = await fetchNeteaseJson(`/api/user/playlist?uid=${realUid}&limit=1000&offset=0`, env);
+    const playlists = ((body || {}).playlist || []).map(normalizePlaylist).filter((p) => p.id);
+    return jsonCors(request, { ok: true, uid: realUid, playlists });
+  }
+
+  if (url.pathname === "/api/netease/playlist/detail") {
+    if (!hasNeteaseCookie(env)) return jsonCors(request, { ok: false, error: "NETEASE_COOKIE is not configured" }, { status: 401 });
+    const id = (url.searchParams.get("id") || "").replace(/[^\d]/g, "");
+    if (!id) return jsonCors(request, { ok: false, error: "missing id" }, { status: 400 });
+    const { body } = await fetchNeteaseJson(`/api/v6/playlist/detail?id=${id}&n=1000&s=0`, env);
+    const playlist = normalizePlaylist((body || {}).playlist || {});
+    const tracks = ((((body || {}).playlist || {}).tracks) || []).map(normalizeTrack).filter((s) => s.id);
+    return jsonCors(request, { ok: true, playlist, tracks });
+  }
+
+  if (url.pathname === "/api/netease/likelist") {
+    if (!hasNeteaseCookie(env)) return jsonCors(request, { ok: false, error: "NETEASE_COOKIE is not configured" }, { status: 401 });
+    const uid = (url.searchParams.get("uid") || "").replace(/[^\d]/g, "");
+    let realUid = uid;
+    if (!realUid) {
+      const acc = await fetchNeteaseText(`${NETEASE_API}/api/nuser/account/get`, env);
+      realUid = String(((acc.body || {}).profile || {}).userId || "");
+    }
+    if (!realUid) return jsonCors(request, { ok: false, error: "NetEase account is not logged in" }, { status: 401 });
+    const { body } = await fetchNeteaseJson(`/api/song/like/get?uid=${realUid}`, env);
+    return jsonCors(request, { ok: true, ids: ((body || {}).ids || []).map(String) });
+  }
+
+  if (url.pathname === "/api/netease/like") {
+    if (!hasNeteaseCookie(env)) return jsonCors(request, { ok: false, error: "NETEASE_COOKIE is not configured" }, { status: 401 });
+    const id = (url.searchParams.get("id") || "").replace(/[^\d]/g, "");
+    const like = url.searchParams.get("like") !== "false";
+    if (!id) return jsonCors(request, { ok: false, error: "missing id" }, { status: 400 });
+    const csrf = csrfFromCookie(env);
+    const target = `${NETEASE_API}/api/radio/like?alg=itembased&trackId=${id}&like=${like}&time=25&csrf_token=${encodeURIComponent(csrf)}`;
+    const { upstream, body } = await fetchNeteaseText(target, env, { method: "POST" });
+    return jsonCors(request, { ok: upstream.ok, body, status: upstream.status }, { status: upstream.ok ? 200 : upstream.status });
   }
 
   return jsonCors(request, { ok: false, error: "Not found" }, { status: 404 });
@@ -375,7 +545,11 @@ export default {
     if (url.pathname.startsWith("/sync/v1/")) {
       return handleSync(request, env);
     }
-    if (url.pathname.startsWith("/netease/")) {
+    if (
+      url.pathname.startsWith("/netease/") ||
+      url.pathname.startsWith("/api/music/") ||
+      url.pathname.startsWith("/api/netease/")
+    ) {
       return handleNetease(request, env);
     }
 
