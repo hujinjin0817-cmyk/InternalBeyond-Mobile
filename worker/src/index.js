@@ -7,6 +7,8 @@ const ALLOWED_TARGET_HOSTS = new Set([
   "mcp.mcd.cn",
 ]);
 
+const NETEASE_API = "https://music.163.com";
+
 const ALLOWED_METHODS = "GET, POST, DELETE, OPTIONS";
 const DEFAULT_ALLOWED_HEADERS = [
   "Authorization",
@@ -215,6 +217,108 @@ async function handleSync(request, env) {
   return jsonCors(request, { ok: true, revision, items: await syncItems(db, syncId) });
 }
 
+function neteaseHeaders(env) {
+  const headers = {
+    "User-Agent":
+      "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1",
+    Referer: "https://music.163.com/",
+    Accept: "application/json, text/plain, */*",
+  };
+  const cookie = env && typeof env.NETEASE_COOKIE === "string" ? env.NETEASE_COOKIE.trim() : "";
+  if (cookie) headers.Cookie = cookie;
+  return headers;
+}
+
+function artistNames(list) {
+  return (Array.isArray(list) ? list : [])
+    .map((item) => item && item.name)
+    .filter(Boolean)
+    .join(" / ");
+}
+
+function normalizeNeteaseSong(song) {
+  const album = song && (song.album || song.al || {});
+  return {
+    id: String((song && song.id) || ""),
+    name: (song && song.name) || "",
+    artist: artistNames((song && (song.artists || song.ar)) || []),
+    album: album.name || "",
+    pic: album.picUrl || "",
+  };
+}
+
+async function fetchNeteaseJson(path, env) {
+  const upstream = await fetch(NETEASE_API + path, {
+    headers: neteaseHeaders(env),
+    redirect: "follow",
+  });
+  const text = await upstream.text();
+  let body;
+  try {
+    body = JSON.parse(text);
+  } catch (_) {
+    body = { raw: text };
+  }
+  return { upstream, body };
+}
+
+async function handleNetease(request, env) {
+  const url = new URL(request.url);
+  if (request.method !== "GET") {
+    return jsonCors(request, { ok: false, error: "Method not allowed" }, { status: 405 });
+  }
+
+  if (url.pathname === "/netease/search") {
+    const q = (url.searchParams.get("q") || "").trim().slice(0, 80);
+    if (!q) return jsonCors(request, { ok: true, songs: [] });
+    const limit = Math.max(1, Math.min(20, Number(url.searchParams.get("limit")) || 10));
+    const { body } = await fetchNeteaseJson(
+      `/api/search/get?s=${encodeURIComponent(q)}&type=1&limit=${limit}`,
+      env
+    );
+    const songs = (((body || {}).result || {}).songs || []).map(normalizeNeteaseSong).filter((s) => s.id);
+    return jsonCors(request, { ok: true, songs });
+  }
+
+  if (url.pathname === "/netease/detail") {
+    const id = (url.searchParams.get("id") || "").replace(/[^\d]/g, "");
+    if (!id) return jsonCors(request, { ok: false, error: "Missing id" }, { status: 400 });
+    const { body } = await fetchNeteaseJson(`/api/song/detail?ids=%5B${id}%5D`, env);
+    const song = (((body || {}).songs || [])[0] && normalizeNeteaseSong(((body || {}).songs || [])[0])) || null;
+    return jsonCors(request, { ok: true, song });
+  }
+
+  if (url.pathname === "/netease/url") {
+    const id = (url.searchParams.get("id") || "").replace(/[^\d]/g, "");
+    if (!id) return jsonCors(request, { ok: false, error: "Missing id" }, { status: 400 });
+    const { body } = await fetchNeteaseJson(
+      `/api/song/enhance/player/url/v1?id=${id}&level=standard`,
+      env
+    );
+    const item = ((body || {}).data || [])[0] || {};
+    const playUrl = item.url ? String(item.url).replace(/^http:\/\//i, "https://") : "";
+    return jsonCors(request, {
+      ok: !!playUrl,
+      url: playUrl,
+      code: item.code || 0,
+      message: playUrl ? "" : "当前歌曲暂无可用播放源",
+    });
+  }
+
+  if (url.pathname === "/netease/lyric") {
+    const id = (url.searchParams.get("id") || "").replace(/[^\d]/g, "");
+    if (!id) return jsonCors(request, { ok: false, error: "Missing id" }, { status: 400 });
+    const { body } = await fetchNeteaseJson(`/api/song/lyric?id=${id}&lv=1&kv=1&tv=-1`, env);
+    return jsonCors(request, {
+      ok: true,
+      lyric: (((body || {}).lrc || {}).lyric || ""),
+      tlyric: (((body || {}).tlyric || {}).lyric || ""),
+    });
+  }
+
+  return jsonCors(request, { ok: false, error: "Not found" }, { status: 404 });
+}
+
 function targetFromRequest(request) {
   const requestUrl = new URL(request.url);
   const raw = requestUrl.searchParams.get("u") || requestUrl.searchParams.get("url");
@@ -270,6 +374,9 @@ export default {
     const url = new URL(request.url);
     if (url.pathname.startsWith("/sync/v1/")) {
       return handleSync(request, env);
+    }
+    if (url.pathname.startsWith("/netease/")) {
+      return handleNetease(request, env);
     }
 
     let target;

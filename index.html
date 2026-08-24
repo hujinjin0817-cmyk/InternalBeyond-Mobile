@@ -2317,7 +2317,7 @@ raf=requestAnimationFrame(frame);
         <pre style="max-height:46vh;overflow:auto;white-space:pre-wrap;word-break:break-all;font-size:0.72rem;line-height:1.7;color:var(--tx2);background:var(--soft);border:1px solid var(--line);border-radius:12px;padding:12px;margin:8px 0 0">/* InternalBeyond Mobile — ib-sw.js（Service Worker 模板 · 联网优先，离线回退）
    与手机端 HTML 放在同一目录，经 HTTPS 访问时页面会自动注册本文件。
    只接管本站的 GET 请求；发往 AI 服务商 / 中转站的请求原样放行、绝不缓存。 */
-const IB_CACHE=&#x27;ib-cache-v3&#x27;;
+const IB_CACHE=&#x27;ib-cache-v4&#x27;;
 self.addEventListener(&#x27;install&#x27;,function(){self.skipWaiting()});
 self.addEventListener(&#x27;activate&#x27;,function(e){e.waitUntil(caches.keys().then(function(ks){return Promise.all(ks.filter(function(k){return k!==IB_CACHE}).map(function(k){return caches.delete(k)}))}).then(function(){return self.clients.claim()}))});
 self.addEventListener(&#x27;fetch&#x27;,function(e){
@@ -3256,6 +3256,9 @@ self.addEventListener(&#x27;fetch&#x27;,function(e){
       <i class="ma-vinyl" aria-hidden="true"><i class="ma-vlabel"><svg viewBox="0 0 24 24"><circle cx="8" cy="17" r="2.4"/><circle cx="17.5" cy="15" r="2.4"/><path d="M10.4 17V7l9-2.1V15"/></svg></i></i>
     </div>
     <div class="ma-inforow"><div class="ma-info"><div class="ma-t" id="ma-t">Music</div><div class="ma-s" id="ma-s">—</div></div><button class="ma-btn ma-mini" id="ma-mate" title="一起听"><svg viewBox="0 0 24 24"><path d="M12 20.4S4.6 15.9 2.9 11.6C1.7 8.5 3.5 5.6 6.4 5.2c1.9-.26 3.7.62 4.8 2.15C12.3 5.82 14.1 4.94 16 5.2c2.9.4 4.7 3.3 3.5 6.4-1.7 4.3-9.1 8.8-9.1 8.8z"/></svg></button></div>
+    <div class="ma-src" id="ma-src"><button class="on" data-src="netease">网易云</button><button data-src="local">本地音乐</button></div>
+    <div class="ma-search" id="ma-search"><input id="ma-search-input" type="search" placeholder="搜索歌曲或歌手"><button id="ma-search-btn">搜索</button></div>
+    <div class="ma-results" id="ma-results"></div>
     <div class="ma-lyr" id="ma-lyr"></div>
   </div>
   <div class="ma-foot">
@@ -7948,6 +7951,7 @@ async function callAI(cfg,hist,sys,onDelta,signal,pa){
   const model=(cfg.model||prov.model||'').trim();
   const stream=cfg.streaming!==false;
   const think=!!cfg.thinkingEnabled;
+  const allowReasoning=think;
   try{await loadOUT()}catch(e){}/* v130-p：读手动档 */
   const maxT=_chatMaxTokensM(cfg,pa);/* v130-p：不再写死 4096——服务商顶格 / 全局手动档 / pa.maxTokens；超限报错见下方自动降档重试 */
   if(!ep)throw new Error('未填写 Endpoint');
@@ -8022,6 +8026,7 @@ async function callAI(cfg,hist,sys,onDelta,signal,pa){
     const msgs=(sys?[{role:'system',content:sys}]:[]).concat(_histFor('openai',hist));
     const b={model:model,messages:msgs,stream:stream};
     b.max_tokens=maxT;
+    if(cfg.provider==='deepseek'||/api\.deepseek\.com/i.test(ep))b.thinking=think?{type:'enabled'}:{type:'disabled'};
     if(cfg.promptCache!==false)b.prompt_cache_key='ib_'+String(cfg.id||'');
     if(stream&&cfg.promptCache!==false)b.stream_options={include_usage:true};/* 缓存追平电脑版：开启提示缓存时请求 usage 尾块；不支持的中转会走下方去参重试 */
     if(useWS)b.web_search_options={};
@@ -8048,6 +8053,10 @@ async function callAI(cfg,hist,sys,onDelta,signal,pa){
     /* 端点不认识 stream_options → 去参重发一次 */
     if(!res.ok&&res.status>=400&&res.status<500&&/stream_options/i.test(errTxt)){
       try{const b4=JSON.parse(body);delete b4.stream_options;body=JSON.stringify(b4);res=await fetch(url,{method:'POST',headers:headers,body:body,signal:signal})}catch(e){}
+    }
+    /* DeepSeek V4 官方默认为 thinking enabled；关闭思考时必须显式 disabled。若第三方 OpenAI-compatible 中转不认识该字段，去参重发以保证聊天不中断。 */
+    if(!res.ok&&res.status>=400&&res.status<500&&fmt!=='anthropic'&&fmt!=='gemini'&&/thinking|reasoning/i.test(errTxt)){
+      try{const bds=JSON.parse(body);if(bds&&bds.thinking){delete bds.thinking;body=JSON.stringify(bds);res=await fetch(url,{method:'POST',headers:headers,body:body,signal:signal})}}catch(e){}
     }
     /* GPT-5 系要求 max_completion_tokens：换参数重试一次 */
     if(res.status===400&&/max_tokens|max_completion_tokens/.test(errTxt)&&fmt!=='anthropic'&&fmt!=='gemini'){
@@ -8083,7 +8092,7 @@ async function callAI(cfg,hist,sys,onDelta,signal,pa){
   if(stream&&res.body){
     let at='',ak='';
     await readSSE(res,fmt,(t,k)=>{
-      at+=t;ak+=k;
+      at+=t;if(allowReasoning)ak+=k;
       if(_tagThink){const p=_splitThinkLive(at);onDelta(p.reply,(ak&&p.thinking)?(ak+'\n'+p.thinking):(p.thinking||ak))}
       else onDelta(at,ak.replace(/^\s+/,''));/* v69-m t11：pre-wrap 下头部空白=大段空隙，掐掉 */
     },_grabU);
@@ -8095,6 +8104,7 @@ async function callAI(cfg,hist,sys,onDelta,signal,pa){
   const j=await res.json();
   _grabU(j);
   const full=extractFull(fmt,j);
+  if(!allowReasoning)full.k='';
   if(_tagThink){const p=_parseThinking(full.t||'');if(p.thinking){full.k=(full.k?full.k+'\n':'')+p.thinking;full.t=p.reply}}
   full.k=(full.k||'').replace(/^\s+/,'');/* v69-m t11 */
   if(_u.seen){try{_tkRecord(cfg,{i:_u.i,cr:_u.cr,cw:_u.cw,o:_u.o})}catch(e){}}
@@ -10556,7 +10566,7 @@ function _pwaApply(){try{
     else if(!pw.safe&&has.test(v))vp.setAttribute('content',v.replace(has,''))}
 }catch(e){}}
 /* v14：GUIDE → PWA 教程页的 ib-sw.js 模板下载（与页内展示的模板逐字一致） */
-var _IB_SW_TPL="/* InternalBeyond Mobile — ib-sw.js（Service Worker 模板 · 联网优先，离线回退）\n   与手机端 HTML 放在同一目录，经 HTTPS 访问时页面会自动注册本文件。\n   只接管本站的 GET 请求；发往 AI 服务商 / 中转站的请求原样放行、绝不缓存。 */\nconst IB_CACHE='ib-cache-v3';\nself.addEventListener('install',function(){self.skipWaiting()});\nself.addEventListener('activate',function(e){e.waitUntil(caches.keys().then(function(ks){return Promise.all(ks.filter(function(k){return k!==IB_CACHE}).map(function(k){return caches.delete(k)}))}).then(function(){return self.clients.claim()}))});\nself.addEventListener('fetch',function(e){\n  if(e.request.method!=='GET')return;\n  var u=new URL(e.request.url);\n  if(u.origin!==self.location.origin)return;\n  e.respondWith(fetch(e.request).then(function(r){\n    if(r&&r.ok){var cp=r.clone();caches.open(IB_CACHE).then(function(c){c.put(e.request,cp)})}\n    return r;\n  }).catch(function(){return caches.match(e.request,{ignoreSearch:true}).then(function(m){if(m)return m;throw new Error('offline')})}));\n});";
+var _IB_SW_TPL="/* InternalBeyond Mobile — ib-sw.js（Service Worker 模板 · 联网优先，离线回退）\n   与手机端 HTML 放在同一目录，经 HTTPS 访问时页面会自动注册本文件。\n   只接管本站的 GET 请求；发往 AI 服务商 / 中转站的请求原样放行、绝不缓存。 */\nconst IB_CACHE='ib-cache-v4';\nself.addEventListener('install',function(){self.skipWaiting()});\nself.addEventListener('activate',function(e){e.waitUntil(caches.keys().then(function(ks){return Promise.all(ks.filter(function(k){return k!==IB_CACHE}).map(function(k){return caches.delete(k)}))}).then(function(){return self.clients.claim()}))});\nself.addEventListener('fetch',function(e){\n  if(e.request.method!=='GET')return;\n  var u=new URL(e.request.url);\n  if(u.origin!==self.location.origin)return;\n  e.respondWith(fetch(e.request).then(function(r){\n    if(r&&r.ok){var cp=r.clone();caches.open(IB_CACHE).then(function(c){c.put(e.request,cp)})}\n    return r;\n  }).catch(function(){return caches.match(e.request,{ignoreSearch:true}).then(function(m){if(m)return m;throw new Error('offline')})}));\n});";
 try{var _swb=document.getElementById('pwa-sw-dl');if(_swb)_swb.addEventListener('click',function(){try{var b=new Blob([_IB_SW_TPL],{type:'text/javascript;charset=utf-8'});var a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='ib-sw.js';document.body.appendChild(a);a.click();a.remove();setTimeout(function(){try{URL.revokeObjectURL(a.href)}catch(e){}},400)}catch(e){toast('此环境暂不支持下载')}})}catch(e){}
 /* 工具分区 */
 async function renderApiTools(){
@@ -11591,7 +11601,7 @@ function _orientApply(){try{
   el=$('ui-bigtouch');if(el)el.addEventListener('click',async function(){var el9=this;try{await loadMP();_mp.ui=_mp.ui||{};_mp.ui.bigTouch=!_mp.ui.bigTouch;sw2(el9,!!_mp.ui.bigTouch);await saveMP();_uiApply();toast(_mp.ui.bigTouch?'触控目标已放大':'触控目标恢复标准')}catch(e){toast('设置保存失败，请重试');try{await loadMP();sw2(el9,!!(_mp.ui&&_mp.ui.bigTouch))}catch(e2){}}});
   setTimeout(function(){try{if(window.IBNative&&window.IBNative.available){var _bg=$('pres-bg');var _row=_bg&&_bg.closest('.tog');if(_row)_row.style.display=''}}catch(e){}},1200);/* v116-p：壳内显露「后台 Presence（App）」开关（桥在文末激活，故延时探测；浏览器 / PWA 保持隐藏） */
 })();
-var IB_VER='v148-p',IB_VER_DATE='2026-08-23';/* v86-m r3：版本号占位——展示于 PWA 卡、写入导出档与运行时 manifest */
+var IB_VER='v149-p',IB_VER_DATE='2026-08-24';/* v86-m r3：版本号占位——展示于 PWA 卡、写入导出档与运行时 manifest */
 (function _appVerDraw(){var e=document.getElementById('app-ver');if(e)e.textContent='InternalBeyond Mobile '+IB_VER+'（'+IB_VER_DATE+'）'})();
 function _lkVeilOff(){try{var v=document.getElementById('lk-preveil');if(v){v.classList.add('off');setTimeout(function(){try{v.remove()}catch(e){}},420)}}catch(e){}}/* fix-r4：预遮罩揭幕（任务 8） */
 async function _lkBoot(){try{await loadBgs()}catch(e){}var lk=_lkCfg();try{localStorage.setItem('ib_lockOn',lk&&lk.on?'1':'0')}catch(e){}/* v101-m：启动后把 DB 真值回写同步镜像 */if(lk&&lk.on)_lkShow();else _lkVeilOff()}
@@ -13735,7 +13745,7 @@ function _pwFmt(x){if(!isFinite(x)||x<0)return'--:--';x=Math.round(x);return Mat
 function _pwName(r){return String((r&&(r.name||r.title))||'').replace(/\.[a-z0-9]{1,5}$/i,'')||'未命名音频'}
 async function _pwLoad(){
   let arr=[];try{arr=await dbGetAll('music')}catch(e){arr=[]}
-  arr=(arr||[]).filter(function(r){return r&&((typeof Blob!=='undefined'&&r.blob instanceof Blob)||typeof r.data==='string')});
+  arr=(arr||[]).filter(function(r){return r&&((typeof Blob!=='undefined'&&r.blob instanceof Blob)||typeof r.data==='string'||r.src==='netease')});
   arr.sort(function(x,y){return (x.addedAt||0)-(y.addedAt||0)});
   _pw.list=arr;
   if(_pw.idx>=arr.length)_pw.idx=arr.length?arr.length-1:-1;
@@ -13743,6 +13753,7 @@ async function _pwLoad(){
 function _pwSrc(r){
   if(_pw.url){try{URL.revokeObjectURL(_pw.url)}catch(e){}_pw.url=''}
   if(typeof Blob!=='undefined'&&r.blob instanceof Blob){_pw.url=URL.createObjectURL(r.blob);return _pw.url}
+  if(r&&r.src==='netease')return r.playUrl||'';
   return r.data||'';
 }
 function _pwPaint(){
@@ -13804,6 +13815,54 @@ async function _pwLoadMode(){
 async function _pwSync(){/* Desk 渲染包装器调用：按库里真值刷曲库与面板 */
   await _pwLoadMode();await _pwLoad();_pwPaint();
 }
+const NETEASE_PROXY='https://round-recipe-ea1b.hujinjin0817.workers.dev/netease';
+async function _neteaseApi(path,qs){
+  var q=Object.assign({},qs||{}),u=NETEASE_PROXY+path+'?'+Object.keys(q).map(function(k){return encodeURIComponent(k)+'='+encodeURIComponent(q[k])}).join('&');
+  var r=await fetch(u,{headers:{Accept:'application/json'}});
+  var j=await r.json().catch(function(){return null});
+  if(!r.ok||!j)throw new Error((j&&j.error)||('网易云接口 HTTP '+r.status));
+  return j
+}
+async function _neteaseSearchM(q){
+  var j=await _neteaseApi('/search',{q:q,limit:12});
+  return (j&&Array.isArray(j.songs))?j.songs:[]
+}
+async function _neteasePlayableM(rec){
+  if(!rec||rec.src!=='netease')return rec;
+  if(rec.playUrl)return rec;
+  var j=await _neteaseApi('/url',{id:rec.neteaseId||rec.id});
+  if(!j||!j.url)throw new Error((j&&j.message)||'当前歌曲暂无可用播放源');
+  rec.playUrl=j.url;rec.playUrlAt=Date.now();
+  try{await dbPut('music',rec)}catch(e){}
+  return rec
+}
+async function _neteaseLyricsM(rec){
+  if(!rec||rec.src!=='netease'||rec.lyricsAttemptedAt)return rec;
+  try{
+    var j=await _neteaseApi('/lyric',{id:rec.neteaseId||rec.id}),txt=(j&&j.lyric)||'';
+    rec.lyrics=txt?IBMusicCore.parseLyrics(txt,(rec.title||rec.name||'')+'.lrc'):{source:'netease',segments:[],instrumental:true};
+    rec.lyrics.source='netease';
+  }catch(e){rec.lyrics={source:'netease',segments:[],instrumental:true}}
+  rec.lyricsAttemptedAt=Date.now();
+  try{await dbPut('music',rec)}catch(e){}
+  return rec
+}
+async function _neteaseAddTrackM(song,playNow){
+  var id='netease_'+String(song&&song.id||'').replace(/[^\d]/g,'');
+  if(id==='netease_')throw new Error('歌曲 ID 无效');
+  await _pwLoad();
+  var rec=(_pw.list||[]).find(function(x){return x&&x.id===id});
+  if(!rec){
+    rec={id:id,neteaseId:String(song.id),name:song.name||'网易云歌曲',title:song.name||'网易云歌曲',artist:song.artist||'',album:song.album||'',cover:song.pic||'',size:0,addedAt:Date.now(),src:'netease'};
+    await dbPut('music',rec);
+  }else{
+    Object.assign(rec,{title:song.name||rec.title,name:song.name||rec.name,artist:song.artist||rec.artist,album:song.album||rec.album,cover:song.pic||rec.cover,src:'netease',neteaseId:String(song.id)});
+    await dbPut('music',rec);
+  }
+  await _pwLoad();var ix=_pw.list.findIndex(function(x){return x&&x.id===id});
+  if(playNow&&ix>=0)await _pwPlayIdx(ix);else{_pwPaint();_pwListDraw()}
+  return rec
+}
 async function _pwAddFiles(files){
   var fs=Array.prototype.slice.call(files||[]).filter(function(f){return f&&f.size});
   if(!fs.length)return;
@@ -13824,7 +13883,7 @@ function _pwListDraw(){
   if(!_pw.list.length){box.innerHTML='<div class="empty">曲库为空。点下方「添加音乐」选择本机音频文件。</div>';return}
   _pw.list.forEach(function(r,i){
     var row=document.createElement('div');row.className='pwl-row'+(i===_pw.idx?' on':'');
-    row.innerHTML='<span class="pwl-n">'+(i+1)+'</span><span class="pwl-t">'+esc(_pwName(r))+'</span><span class="pwl-d">'+fmtBytes(r.size||0)+'</span>'
+    row.innerHTML='<span class="pwl-n">'+(i+1)+'</span><span class="pwl-t">'+esc(_pwName(r))+'</span><span class="pwl-d">'+(r.src==='netease'?'网易云':fmtBytes(r.size||0))+'</span>'
       +'<button class="pwl-x" title="删除"><svg viewBox="0 0 24 24"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/></svg></button>';
     row.addEventListener('click',function(){_pwPlayIdx(i)});
     row.querySelector('.pwl-x').addEventListener('click',async function(e){
@@ -17095,6 +17154,24 @@ body.theme-infernal #music-app,body.theme-infernal #cal-app{background:#12182c}
 .ma-wall,.ca-wall{position:absolute;inset:0;background:var(--bgimg) center/cover no-repeat;z-index:0}
 .ma-cvbg{position:absolute;inset:-6%;background:center/cover no-repeat;filter:blur(46px) saturate(1.35);transform:scale(1.12);opacity:0;transition:opacity 0.5s;z-index:0}
 #music-app.has-cover .ma-cvbg{opacity:0.85}
+.ma-src{display:flex;gap:6px;margin:2px 0 10px;padding:3px;border:1px solid rgba(255,255,255,.18);border-radius:999px;background:rgba(255,255,255,.12);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)}
+.ma-src button{flex:1;height:30px;border:0;border-radius:999px;background:transparent;color:rgba(255,255,255,.62);font:600 .76rem/1 var(--font-ui,inherit)}
+.ma-src button.on{background:rgba(255,255,255,.92);color:#172133;box-shadow:0 6px 16px rgba(7,18,36,.16)}
+body.theme-infernal .ma-src button.on{background:rgba(255,255,255,.16);color:#fff}
+.ma-search{display:flex;gap:8px;margin:0 0 10px}
+.ma-search input{flex:1;min-width:0;height:36px;border:1px solid rgba(255,255,255,.16);border-radius:14px;background:rgba(255,255,255,.12);color:#fff;padding:0 12px;outline:0;font:500 .86rem/1 var(--font-ui,inherit);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px)}
+.ma-search input::placeholder{color:rgba(255,255,255,.38)}
+.ma-search button{height:36px;border:0;border-radius:14px;padding:0 14px;background:rgba(255,255,255,.92);color:#172133;font:700 .82rem/1 var(--font-ui,inherit)}
+.ma-results{display:none;max-height:188px;overflow:auto;margin:-2px 0 10px;border-radius:18px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.14);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px)}
+.ma-results.show{display:block}
+.ma-ns-row{display:grid;grid-template-columns:42px minmax(0,1fr) 34px;gap:10px;align-items:center;padding:9px 10px;border-bottom:1px solid rgba(255,255,255,.09)}
+.ma-ns-row:last-child{border-bottom:0}
+.ma-ns-cover{width:42px;height:42px;border-radius:12px;background:rgba(255,255,255,.14);overflow:hidden;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.52)}
+.ma-ns-cover img{width:100%;height:100%;object-fit:cover;display:block}
+.ma-ns-title{font-size:.84rem;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ma-ns-sub{margin-top:2px;font-size:.68rem;color:rgba(255,255,255,.48);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ma-ns-play{width:34px;height:34px;border:0;border-radius:50%;background:rgba(255,255,255,.9);color:#172133;display:flex;align-items:center;justify-content:center}
+.ma-results .empty{padding:14px;text-align:center;color:rgba(255,255,255,.5);font-size:.78rem}
 .ma-scrim,.ca-scrim{position:absolute;inset:0;background:var(--scrim);z-index:0}
 .ma-head,.ca-head{position:relative;z-index:2;flex:none;display:flex;align-items:center;gap:8px;margin:calc(8px + var(--sat)) 10px 0;height:50px;padding:0 6px;border-radius:17px;background:var(--glass);border:1px solid var(--glass-line);backdrop-filter:blur(22px) saturate(1.4);-webkit-backdrop-filter:blur(22px) saturate(1.4)}
 .ma-title{flex:1;text-align:center;font-family:var(--disp);font-weight:300;font-size:0.8rem;letter-spacing:0.3em;text-transform:uppercase;color:var(--tx2);padding-left:0.3em}
@@ -17750,13 +17827,17 @@ _pwAddFiles=async function(files,ctx){
   if(first&&ids.length){var ix=_pw.list.findIndex(function(r){return r.id===ids[0]});if(ix>=0)_pwPlayIdx(ix)}
 };
 _pwPlayIdx=async function(i){
-  await _pwLoad();if(!_pw.list.length){toast('曲库为空，先添加音乐');_pwPaint();return}i=((i%_pw.list.length)+_pw.list.length)%_pw.list.length;_pw.idx=i;var rec=_pw.list[i],a=_pwA();a.src=_pwSrc(rec);try{await a.play()}catch(e){toast('播放失败')}_pwPaint();_pwListDraw();try{await loadMP();_musicEnsureM(rec,!!(_mp.musicAi&&_mp.musicAi.share))}catch(e){_musicEnsureM(rec,false)}_musicSyncCardsM()
+  await _pwLoad();if(!_pw.list.length){toast('曲库为空，先添加音乐');_pwPaint();return}i=((i%_pw.list.length)+_pw.list.length)%_pw.list.length;_pw.idx=i;var rec=_pw.list[i],a=_pwA();
+  try{if(rec&&rec.src==='netease')rec=await _neteasePlayableM(rec)}catch(e){toast(String(e&&e.message||'当前歌曲暂无可用播放源'));_pwPaint();_pwListDraw();return}
+  a.src=_pwSrc(rec);try{await a.play()}catch(e){toast('播放失败')}
+  if(rec&&rec.src==='netease')_neteaseLyricsM(rec).then(function(){try{_pwLoad().then(function(){_pwPaint();_pwListDraw();if(window._maRefreshMusicM)window._maRefreshMusicM()})}catch(e){}}).catch(function(){});
+  _pwPaint();_pwListDraw();try{await loadMP();_musicEnsureM(rec,!!(_mp.musicAi&&_mp.musicAi.share))}catch(e){_musicEnsureM(rec,false)}_musicSyncCardsM()
 };
 async function _musicEnsureM(rec,wantTranscript){
   if(!rec||!rec.id)return null;if(_ibMusicMJobs[rec.id])return _ibMusicMJobs[rec.id];
   _ibMusicMJobs[rec.id]=(async function(){var dirty=false;
     try{if(!rec.metaScanned&&rec.blob instanceof Blob){var m=await IBMusicCore.readMeta(rec.blob);rec.title=m.title||rec.title||IBMusicCore.base(rec.name);rec.artist=m.artist||rec.artist||'';rec.album=m.album||rec.album||'';rec.cover=m.cover||rec.cover||'';rec.metaScanned=true;dirty=true}}catch(e){}
-    if(!rec.analysis||rec.analysis.version!==IBMusicCore.VERSION){try{rec.analysis=await IBMusicCore.analyze(rec.blob);dirty=true;if(_pw.idx>=0&&_pw.list[_pw.idx]&&_pw.list[_pw.idx].id===rec.id)toast('歌曲结构分析完成')}catch(e){}}
+    if(rec.blob instanceof Blob&&(!rec.analysis||rec.analysis.version!==IBMusicCore.VERSION)){try{rec.analysis=await IBMusicCore.analyze(rec.blob);dirty=true;if(_pw.idx>=0&&_pw.list[_pw.idx]&&_pw.list[_pw.idx].id===rec.id)toast('歌曲结构分析完成')}catch(e){}}
     if(dirty){try{await dbPut('music',rec)}catch(e){}_pwPaint();_pwListDraw()}
     if(wantTranscript&&!rec.lyrics&&rec.blob instanceof Blob){try{var vt=await loadVT();if(vt&&vt.endpoint&&vt.apiKey&&vt.model){var lr=await IBMusicCore.transcribe(rec,vt,vtUrl);lr=_musicCleanLyricsM(lr);var latest=null;try{latest=await dbGet('music',rec.id)}catch(x){}if(latest&&latest.lyrics){Object.assign(rec,latest);console.info('[Music Together] transcript discarded: lyrics already exist (manual import wins)')}else{rec.lyrics=lr||{source:'transcript',segments:[],text:'',timed:false,at:Date.now()};rec.lyricsAttemptedAt=Date.now();await dbPut('music',rec);if(lr&&((lr.segments&&lr.segments.length)||lr.text))toast('歌曲人声时间轴已生成');else toast('歌曲结构已分析，未识别到可用人声')}try{if(window._maRefreshMusicM)window._maRefreshMusicM()}catch(x){}}}catch(e){console.warn('[Music Together] transcript failed',e)}}
     _musicSyncCardsM();return rec;
@@ -17798,11 +17879,14 @@ var _oldProcIbOpsM=procIbOps;procIbOps=async function(cfg,m){var raw=String(m&&m
     el.classList.add('open');_maBindOnce();_maPaint(true);_maDuoDraw();
   };
   function closeMusicApp(){var el=$i('music-app');if(el)el.classList.remove('open')}
+  var _maSource='netease';
   function _maBindOnce(){
     if(_maBound)return;_maBound=true;
     $i('ma-back').addEventListener('click',closeMusicApp);
     $i('ma-queue').addEventListener('click',function(){openSheet('sheet-music');try{_pwListDraw()}catch(e){}});
     $i('ma-addtop').addEventListener('click',function(){if(window._pwPickFiles)window._pwPickFiles('audio');else{var f=$('pw-file');if(f){try{f.value=''}catch(e){}f.click()}}});
+    var src=$i('ma-src');if(src)src.addEventListener('click',function(e){var b=e.target.closest('button[data-src]');if(!b)return;_maSource=b.dataset.src==='local'?'local':'netease';_maSourceDraw();if(_maSource==='local'){openSheet('sheet-music');try{_pwListDraw()}catch(x){}}});
+    var sb=$i('ma-search-btn'),si=$i('ma-search-input');if(sb)sb.addEventListener('click',_maNeteaseSearch);if(si)si.addEventListener('keydown',function(e){if(e.key==='Enter')_maNeteaseSearch()});
     $i('ma-mate').addEventListener('click',_maMateBtn);
     $i('ma-play').addEventListener('click',function(){var b=$('pw-play');if(b)b.click();setTimeout(function(){_maPaint()},80)});
     $i('ma-prev').addEventListener('click',function(){var b=$('pw-prev');if(b)b.click()});
@@ -17825,8 +17909,33 @@ var _oldProcIbOpsM=procIbOps;procIbOps=async function(cfg,m){var raw=String(m&&m
       a.addEventListener('loadedmetadata',function(){_maPaint(true)});
     }catch(e){}
   }
+  function _maSourceDraw(){
+    var src=$i('ma-src');if(src)Array.prototype.forEach.call(src.querySelectorAll('button'),function(b){b.classList.toggle('on',b.dataset.src===_maSource)});
+    var show=_maSource!=='local';
+    var s=$i('ma-search'),r=$i('ma-results');if(s)s.style.display=show?'flex':'none';if(r){r.classList.toggle('show',show&&r.childNodes.length>0);if(!show)r.innerHTML=''}
+  }
+  async function _maNeteaseSearch(){
+    _maSource='netease';_maSourceDraw();
+    var input=$i('ma-search-input'),box=$i('ma-results');if(!input||!box)return;
+    var q=String(input.value||'').trim();if(!q){toast('请输入歌名或歌手');return}
+    box.classList.add('show');box.innerHTML='<div class="empty">搜索中…</div>';
+    try{
+      var songs=await _neteaseSearchM(q);box.innerHTML='';
+      if(!songs.length){box.innerHTML='<div class="empty">没有搜到歌曲</div>';return}
+      songs.forEach(function(s){
+        var row=document.createElement('div');row.className='ma-ns-row';
+        var cv=document.createElement('div');cv.className='ma-ns-cover';if(s.pic){var im=document.createElement('img');im.src=s.pic;im.alt='';cv.appendChild(im)}else cv.textContent='♪';
+        var mid=document.createElement('div');mid.style.minWidth='0';mid.innerHTML='<div class="ma-ns-title">'+esc(s.name||'')+'</div><div class="ma-ns-sub">'+esc((s.artist||'')+(s.album?' · '+s.album:''))+'</div>';
+        var bt=document.createElement('button');bt.className='ma-ns-play';bt.type='button';bt.innerHTML='<svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M8.5 5.8v12.4L18.5 12z"/></svg>';
+        row.appendChild(cv);row.appendChild(mid);row.appendChild(bt);
+        row.addEventListener('click',async function(){try{await _neteaseAddTrackM(s,true);box.classList.remove('show');box.innerHTML='';input.blur();_maPaint(true)}catch(e){toast(String(e&&e.message||'当前歌曲暂无可用播放源'))}});
+        box.appendChild(row);
+      });
+    }catch(e){box.innerHTML='<div class="empty">网易云服务暂不可用</div>';toast(String(e&&e.message||'网易云服务暂不可用'))}
+  }
   function _maPaint(fresh){
     var el=$i('music-app');if(!el||!el.classList.contains('open'))return;
+    _maSourceDraw();
     var cur=_maCur();var a=(typeof _pw!=='undefined'&&_pw.a)?_pw.a:null;
     $i('ma-t').textContent=cur?_pwName(cur):'Music';
     var sub='';
