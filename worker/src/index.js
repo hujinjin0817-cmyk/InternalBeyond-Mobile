@@ -300,7 +300,6 @@ export default {
       method: request.method,
       headers: filteredRequestHeaders(request),
       body: ["GET", "HEAD"].includes(request.method) ? undefined : request.body,
-      duplex: "half",
       redirect: "manual",
     });
 
