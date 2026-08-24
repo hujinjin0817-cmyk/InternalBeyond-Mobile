@@ -292,7 +292,7 @@ async function handleNetease(request, env) {
     const id = (url.searchParams.get("id") || "").replace(/[^\d]/g, "");
     if (!id) return jsonCors(request, { ok: false, error: "Missing id" }, { status: 400 });
     const { body } = await fetchNeteaseJson(
-      `/api/song/enhance/player/url/v1?id=${id}&level=standard`,
+      `/api/song/enhance/player/url?id=${id}&ids=%5B${id}%5D&br=320000`,
       env
     );
     const item = ((body || {}).data || [])[0] || {};
