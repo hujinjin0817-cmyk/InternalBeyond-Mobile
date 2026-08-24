@@ -3251,6 +3251,7 @@ self.addEventListener(&#x27;fetch&#x27;,function(e){
   </div>
   <div class="ma-duo" id="ma-duo"></div>
   <div class="ma-body">
+    <button class="ma-lyrics-back" id="ma-lyrics-back" type="button">返回播放器</button>
     <div class="ma-art" id="ma-art">
       <i class="ma-arm" aria-hidden="true"><i></i></i>
       <i class="ma-vinyl" aria-hidden="true"><i class="ma-vlabel"><svg viewBox="0 0 24 24"><circle cx="8" cy="17" r="2.4"/><circle cx="17.5" cy="15" r="2.4"/><path d="M10.4 17V7l9-2.1V15"/></svg></i></i>
@@ -17693,6 +17694,79 @@ body.theme-infernal .mbb.a{background:rgba(40,56,88,0.92);color:#e7effc}
 .ma-duo-cap{font-size:0.8rem}
 .ma-cvbg{filter:blur(56px) saturate(1.1)}
 #music-app.has-cover .ma-cvbg{opacity:0.45}
+
+/* v151-m：音乐页手机竖屏收紧播放器，把列表和歌词交互变成主体验 */
+#music-app .ma-head{height:44px;margin-top:calc(6px + var(--sat));border-radius:15px}
+#music-app .ma-duo{margin-top:6px}
+#music-app .ma-duo2{gap:4px}
+#music-app .ma-duo2 .ma-ava{width:40px;height:40px}
+#music-app .ma-duo2 .ma-ava+.ma-ava{margin-left:-13px}
+#music-app .ma-duo-cap{font-size:0.68rem}
+#music-app .ma-body{padding-top:7px}
+#music-app .ma-art{width:clamp(118px,34vw,152px);margin-top:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
+#music-app .ma-arm{top:-6%;right:0;width:38%;height:54%}
+#music-app .ma-inforow{margin-top:8px;gap:8px}
+#music-app .ma-inforow .ma-t{font-size:0.95rem;line-height:1.25}
+#music-app .ma-s{font-size:0.66rem}
+#music-app .ma-mini{width:34px;height:34px}
+#music-app .ma-src{margin:4px 0 7px}
+#music-app .ma-src button{height:28px;font-size:0.72rem}
+#music-app .ma-search{width:100%;max-width:520px;margin-bottom:7px}
+#music-app .ma-search input{height:34px;font-size:0.82rem;border-radius:13px;color:#1d2a3d}
+#music-app .ma-search input::placeholder{color:rgba(45,66,98,.42)}
+#music-app .ma-search button{height:34px;border-radius:13px}
+#music-app .ma-cloud-tools{margin-bottom:8px;gap:6px}
+#music-app .ma-cloud-tools button{height:31px;font-size:0.72rem;border-radius:12px;color:rgba(30,46,72,.72)}
+#music-app .ma-results.show{display:block;flex:1;width:100%;max-width:520px;min-height:190px;max-height:none;margin:0 0 8px;overscroll-behavior:contain}
+#music-app .ma-ns-row{grid-template-columns:48px minmax(0,1fr) 36px;gap:11px;padding:10px 11px;min-height:66px}
+#music-app .ma-ns-cover{width:48px;height:48px;border-radius:13px}
+#music-app .ma-ns-title{font-size:0.92rem;line-height:1.25;color:#1d2a3d}
+#music-app .ma-ns-sub{font-size:0.74rem;line-height:1.35;color:rgba(45,66,98,.62)}
+#music-app .ma-ns-play{width:36px;height:36px}
+#music-app .ma-lyr{display:none;flex:none;min-height:58px;max-height:78px;margin-top:2px;padding:10px 6px}
+#music-app .ma-ln{font-size:0.8rem;padding:4px 4px}
+body.theme-infernal #music-app .ma-search input{color:#fff}
+body.theme-infernal #music-app .ma-search input::placeholder{color:rgba(255,255,255,.38)}
+body.theme-infernal #music-app .ma-cloud-tools button{color:rgba(255,255,255,.68)}
+body.theme-infernal #music-app .ma-ns-title{color:#fff}
+body.theme-infernal #music-app .ma-ns-sub{color:rgba(255,255,255,.48)}
+#music-app .ma-foot{padding-top:3px}
+#music-app .ma-ctl{margin-top:8px}
+#music-app .ma-btn{width:40px;height:40px}
+#music-app .ma-big{width:54px;height:54px}
+#music-app .ma-big svg{width:28px;height:28px}
+#music-app .ma-lyrics-back{display:none}
+#music-app.lyric-view .ma-art,
+#music-app.lyric-view .ma-inforow,
+#music-app.lyric-view .ma-src,
+#music-app.lyric-view .ma-search,
+#music-app.lyric-view .ma-cloud-tools,
+#music-app.lyric-view .ma-results,
+#music-app.lyric-view .ma-duo{display:none!important}
+#music-app.lyric-view .ma-body{padding:8px 18px 0}
+#music-app.lyric-view .ma-lyrics-back{display:inline-flex;align-self:flex-start;align-items:center;justify-content:center;height:32px;padding:0 13px;border:1px solid rgba(255,255,255,.24);border-radius:999px;background:rgba(255,255,255,.16);color:var(--tx2);font:650 .76rem/1 var(--font-ui,inherit);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)}
+#music-app.lyric-view .ma-lyr{display:block;flex:1;max-height:none;min-height:0;margin-top:8px;padding:28px 10px 34px}
+#music-app.lyric-view .ma-ln{font-size:1rem;line-height:1.72;padding:9px 4px}
+#music-app.lyric-view .ma-ln.on{transform:scale(1.06)}
+@media (max-width:430px){
+  #music-app .ma-head{height:42px;margin-left:8px;margin-right:8px}
+  #music-app .ma-title{font-size:0.72rem}
+  #music-app .ma-body{padding-left:12px;padding-right:12px}
+  #music-app .ma-art{width:clamp(108px,32vw,138px)}
+  #music-app .ma-duo2 .ma-ava{width:36px;height:36px}
+  #music-app .ma-duo-cap{font-size:0.62rem}
+  #music-app .ma-inforow{margin-top:6px}
+  #music-app .ma-results.show{min-height:calc(100dvh - 430px)}
+  #music-app .ma-ns-row{grid-template-columns:46px minmax(0,1fr) 34px;min-height:62px;padding:9px 10px}
+  #music-app .ma-ns-cover{width:46px;height:46px}
+  #music-app .ma-ns-title{font-size:0.9rem}
+  #music-app .ma-ns-sub{font-size:0.72rem}
+  #music-app .ma-foot{padding-left:14px;padding-right:14px;padding-bottom:calc(10px + var(--sab))}
+  #music-app .ma-ctl{padding:0 2px}
+  #music-app .ma-btn{width:38px;height:38px}
+  #music-app .ma-big{width:52px;height:52px}
+  #music-app.lyric-view .ma-body{padding-left:14px;padding-right:14px}
+}
 </style>
 <script>
 /* APP 稳定性：全局错误捕获，防止白屏 */
@@ -17940,10 +18014,14 @@ var _oldProcIbOpsM=procIbOps;procIbOps=async function(cfg,m){var raw=String(m&&m
     el.classList.add('open');_maBindOnce();_maPaint(true);_maDuoDraw();
   };
   function closeMusicApp(){var el=$i('music-app');if(el)el.classList.remove('open')}
+  function _maLyricMode(on){var el=$i('music-app');if(el)el.classList.toggle('lyric-view',!!on);setTimeout(_maTime,80)}
   var _maSource='netease';
   function _maBindOnce(){
     if(_maBound)return;_maBound=true;
-    $i('ma-back').addEventListener('click',closeMusicApp);
+    $i('ma-back').addEventListener('click',function(){var el=$i('music-app');if(el&&el.classList.contains('lyric-view')){_maLyricMode(false);return}closeMusicApp()});
+    var lb=$i('ma-lyrics-back');if(lb)lb.addEventListener('click',function(e){e.stopPropagation();_maLyricMode(false)});
+    var art=$i('ma-art');if(art)art.addEventListener('click',function(){_maLyricMode(true)});
+    var info=$i('ma-inforow');if(info)info.addEventListener('click',function(e){if(e.target.closest('button'))return;_maLyricMode(true)});
     $i('ma-queue').addEventListener('click',function(){openSheet('sheet-music');try{_pwListDraw()}catch(e){}});
     $i('ma-addtop').addEventListener('click',function(){if(window._pwPickFiles)window._pwPickFiles('audio');else{var f=$('pw-file');if(f){try{f.value=''}catch(e){}f.click()}}});
     var src=$i('ma-src');if(src)src.addEventListener('click',function(e){var b=e.target.closest('button[data-src]');if(!b)return;_maSource=b.dataset.src==='local'?'local':'netease';_maSourceDraw();if(_maSource==='local'){openSheet('sheet-music');try{_pwListDraw()}catch(x){}}});
