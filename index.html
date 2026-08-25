@@ -13780,7 +13780,7 @@ async function _pwLoad(){
   arr=(arr||[]).filter(function(r){return r&&((typeof Blob!=='undefined'&&r.blob instanceof Blob)||typeof r.data==='string'||r.src==='netease')});
   var st=_pwStateLoad();
   var order=Array.isArray(st.queueIds)?st.queueIds:[];
-  if(order.length){var pos={};order.forEach(function(id,i){pos[id]=i});arr.sort(function(x,y){var ax=pos[x.id],ay=pos[y.id],hx=ax!=null,hy=ay!=null;if(hx&&hy)return ax-ay;if(hx)return-1;if(hy)return 1;return (x.addedAt||0)-(y.addedAt||0)})}
+  if(order.length){var pos={};order.forEach(function(id,i){pos[id]=i});if(st.queueStrict){var qarr=arr.filter(function(x){return x&&pos[x.id]!=null});if(qarr.length)arr=qarr}arr.sort(function(x,y){var ax=pos[x.id],ay=pos[y.id],hx=ax!=null,hy=ay!=null;if(hx&&hy)return ax-ay;if(hx)return-1;if(hy)return 1;return (x.addedAt||0)-(y.addedAt||0)})}
   else arr.sort(function(x,y){return (x.addedAt||0)-(y.addedAt||0)});
   _pw.list=arr;
   if(st.mode==='one'||st.mode==='rand'||st.mode==='loop')_pw.mode=st.mode;
@@ -13934,9 +13934,37 @@ async function _neteaseAddTrackM(song,playNow){
     Object.assign(rec,{title:song.name||rec.title,name:song.name||rec.name,artist:song.artist||rec.artist,album:song.album||rec.album,cover:song.pic||rec.cover,src:'netease',neteaseId:String(song.id)});
     await dbPut('music',rec);
   }
+  _pwStateSave({queueStrict:false,queueSource:'library'});
   await _pwLoad();var ix=_pw.list.findIndex(function(x){return x&&x.id===id});
   if(playNow&&ix>=0)await _pwPlayIdx(ix);else{_pwStateSaveNow();_pwPaint();_pwListDraw()}
   return rec
+}
+async function _neteaseStageTrackM(song,baseAt){
+  var id='netease_'+String(song&&song.id||'').replace(/[^\d]/g,'');
+  if(id==='netease_')return null;
+  var rec=null;try{rec=await dbGet('music',id)}catch(e){}
+  if(!rec){
+    rec={id:id,neteaseId:String(song.id),name:song.name||'网易云歌曲',title:song.name||'网易云歌曲',artist:song.artist||'',album:song.album||'',cover:song.pic||'',size:0,addedAt:baseAt||Date.now(),src:'netease'};
+  }else{
+    Object.assign(rec,{title:song.name||rec.title,name:song.name||rec.name,artist:song.artist||rec.artist,album:song.album||rec.album,cover:song.pic||rec.cover,src:'netease',neteaseId:String(song.id)});
+  }
+  try{await dbPut('music',rec);return rec}catch(e){return null}
+}
+async function _neteaseSetPlaylistQueueM(songs,selectedSong){
+  songs=(songs||[]).filter(function(s){return s&&s.id});
+  if(!songs.length)return _neteaseAddTrackM(selectedSong,true);
+  var base=Date.now(),ids=[],selectedId='netease_'+String(selectedSong&&selectedSong.id||songs[0].id).replace(/[^\d]/g,'');
+  for(var i=0;i<songs.length;i++){
+    var rec=await _neteaseStageTrackM(songs[i],base+i);
+    if(rec&&rec.id)ids.push(rec.id);
+  }
+  if(!ids.length)return _neteaseAddTrackM(selectedSong,true);
+  await _pwLoad();
+  _pwStateSave({queueIds:ids,queueStrict:true,currentId:selectedId,currentTime:0,mode:_pw.mode||'loop',queueSource:'netease-playlist',queueUpdatedAt:Date.now()});
+  await _pwLoad();
+  var ix=_pw.list.findIndex(function(x){return x&&x.id===selectedId});
+  if(ix<0)ix=0;
+  return _pwPlayIdx(ix)
 }
 async function _neteaseSearchPlayM(q){
   var songs=await _neteaseSearchM(q);
@@ -13956,7 +13984,7 @@ async function _pwAddFiles(files){
     var rec={id:'msong_'+Date.now()+'_'+Math.floor(Math.random()*1e5),name:f.name||'音频',type:f.type||'',size:f.size||0,addedAt:Date.now(),src:'mobile',blob:f};
     try{await dbPut('music',rec);ok++}catch(e){}
   }
-  if(ok){toast('已添加 '+ok+' 首');var first=_pw.idx<0;await _pwLoad();_pwStateSaveNow();_pwPaint();_pwListDraw();if(first)_pwPlayIdx(_pw.list.length-ok)}
+  if(ok){toast('已添加 '+ok+' 首');var first=_pw.idx<0;_pwStateSave({queueStrict:false,queueSource:'library'});await _pwLoad();_pwStateSaveNow();_pwPaint();_pwListDraw();if(first)_pwPlayIdx(_pw.list.length-ok)}
   else toast('添加失败');
 }
 function _pwListDraw(){
@@ -18001,6 +18029,7 @@ _pwAddFiles=async function(files,ctx){
     if(ids.length)toast('已添加 '+ids.length+' 首'+(failed?' · '+failed+' 首失败':'')+(lk?' · 绑定 '+lk+' 份歌词':''));
     else toast('音乐添加失败，请检查浏览器存储空间或文件格式');
   }else if(lyr.length)toast(lk?(ctx.mode==='lyrics'&&ctx.trackId&&lyr.length===1?'歌词已绑定到当前歌曲':'歌词已绑定'):'歌词解析失败，或没有找到可绑定的歌曲');
+  if(ids.length)_pwStateSave({queueStrict:false,queueSource:'library'});
   _pwStateSaveNow();_pwPaint();_pwListDraw();try{if(window._maRefreshMusicM)window._maRefreshMusicM()}catch(e){}
   if(first&&ids.length){var ix=_pw.list.findIndex(function(r){return r.id===ids[0]});if(ix>=0)_pwPlayIdx(ix)}
 };
@@ -18141,7 +18170,7 @@ var _oldProcIbOpsM=procIbOps;procIbOps=async function(cfg,m){var raw=String(m&&m
       if(!songs.length){box.innerHTML='<div class="empty">这个歌单暂时没有可显示歌曲</div>';return}
       songs.forEach(function(s){
         var row=_maRow(s);
-        row.addEventListener('click',async function(){try{await _neteaseAddTrackM(s,true);_maPaint(true)}catch(e){toast(String(e&&e.message||'当前歌曲暂无可用播放源'))}});
+        row.addEventListener('click',async function(){try{await _neteaseSetPlaylistQueueM(songs,s);_maPaint(true)}catch(e){toast(String(e&&e.message||'当前歌曲暂无可用播放源'))}});
         box.appendChild(row);
       });
     }catch(e){box.innerHTML='<div class="empty">歌单歌曲读取失败</div>';toast(String(e&&e.message||'歌单歌曲读取失败'))}
@@ -18159,7 +18188,7 @@ var _oldProcIbOpsM=procIbOps;procIbOps=async function(cfg,m){var raw=String(m&&m
       if(!tracks.length){box.innerHTML='<div class="empty">红心列表读取成功，但歌曲详情暂不可用</div>';return}
       tracks.forEach(function(s){
         var row=_maRow(s);
-        row.addEventListener('click',async function(){try{await _neteaseAddTrackM(s,true);_maPaint(true)}catch(e){toast(String(e&&e.message||'当前歌曲暂无可用播放源'))}});
+        row.addEventListener('click',async function(){try{await _neteaseSetPlaylistQueueM(tracks,s);_maPaint(true)}catch(e){toast(String(e&&e.message||'当前歌曲暂无可用播放源'))}});
         box.appendChild(row);
       });
     }catch(e){box.innerHTML='<div class="empty">需要有效网易云 Cookie 才能读取红心</div>';toast(String(e&&e.message||'红心读取失败'))}
