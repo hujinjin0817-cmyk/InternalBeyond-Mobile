@@ -13730,14 +13730,44 @@ function _brvGo(i){
    播放模式（列表循环/单曲循环/随机）存 _mp.ui.musicMode。电脑端 music 仓若有既有记录，
    此处按 name + blob/data 字段尽量兼容读取、绝不改写他端记录；字段对不上的条目直接跳过。 */
 var _pw={list:[],idx:-1,mode:'loop',url:'',a:null};
+const _PW_STATE_KEY='ib_music_state_v1';
+var _pwRestored=false,_pwSaveTimer=0;
+function _pwStateLoad(){try{return JSON.parse(localStorage.getItem(_PW_STATE_KEY)||'{}')||{}}catch(e){return{}}}
+function _pwStateSave(patch){
+  try{
+    var st=Object.assign({},_pwStateLoad(),patch||{});st.updatedAt=Date.now();
+    localStorage.setItem(_PW_STATE_KEY,JSON.stringify(st));
+  }catch(e){}
+}
+function _pwStateSaveNow(){
+  try{
+    var cur=_pw.idx>=0&&_pw.list?_pw.list[_pw.idx]:null,a=_pw.a;
+    _pwStateSave({queueIds:(_pw.list||[]).map(function(x){return x&&x.id}).filter(Boolean),currentId:cur&&cur.id||'',currentTime:(cur&&a&&isFinite(a.currentTime))?Math.max(0,a.currentTime):0,mode:_pw.mode||'loop'});
+  }catch(e){}
+}
+function _pwStateSaveSoon(){clearTimeout(_pwSaveTimer);_pwSaveTimer=setTimeout(_pwStateSaveNow,700)}
+function _pwHistoryAdd(rec){
+  if(!rec||!rec.id)return;
+  var st=_pwStateLoad(),hist=Array.isArray(st.history)?st.history:[];
+  hist=hist.filter(function(x){return x&&x.id!==rec.id});
+  hist.unshift({id:rec.id,title:_pwName(rec),artist:rec.artist||'',album:rec.album||'',src:rec.src||'',playedAt:Date.now()});
+  _pwStateSave({queueIds:(_pw.list||[]).map(function(x){return x&&x.id}).filter(Boolean),history:hist.slice(0,80),currentId:rec.id,currentTime:0,mode:_pw.mode||'loop'});
+}
+function _pwRestoreAudio(rec,sec){
+  if(!rec)return;
+  var a=_pwA(),src=_pwSrc(rec);
+  if(src&&a.src!==src)a.src=src;
+  var set=function(){try{if(isFinite(sec)&&sec>0&&isFinite(a.duration)&&a.duration>sec)a.currentTime=sec}catch(e){}};
+  if(a.readyState>=1)set();else a.addEventListener('loadedmetadata',set,{once:true});
+}
 function _pwA(){
   if(!_pw.a){
     var a=new Audio();a.preload='metadata';
     a.addEventListener('timeupdate',_pwTime);
     a.addEventListener('loadedmetadata',_pwTime);
     a.addEventListener('ended',_pwEnded);
-    a.addEventListener('play',function(){_pwPaint()});
-    a.addEventListener('pause',function(){_pwPaint()});
+    a.addEventListener('play',function(){_pwPaint();_pwStateSaveSoon()});
+    a.addEventListener('pause',function(){_pwPaint();_pwStateSaveNow()});
     a.addEventListener('error',function(){if(_pw.idx>=0)toast('播放失败')});
     _pw.a=a;
   }
@@ -13748,9 +13778,16 @@ function _pwName(r){return String((r&&(r.name||r.title))||'').replace(/\.[a-z0-9
 async function _pwLoad(){
   let arr=[];try{arr=await dbGetAll('music')}catch(e){arr=[]}
   arr=(arr||[]).filter(function(r){return r&&((typeof Blob!=='undefined'&&r.blob instanceof Blob)||typeof r.data==='string'||r.src==='netease')});
-  arr.sort(function(x,y){return (x.addedAt||0)-(y.addedAt||0)});
+  var st=_pwStateLoad();
+  var order=Array.isArray(st.queueIds)?st.queueIds:[];
+  if(order.length){var pos={};order.forEach(function(id,i){pos[id]=i});arr.sort(function(x,y){var ax=pos[x.id],ay=pos[y.id],hx=ax!=null,hy=ay!=null;if(hx&&hy)return ax-ay;if(hx)return-1;if(hy)return 1;return (x.addedAt||0)-(y.addedAt||0)})}
+  else arr.sort(function(x,y){return (x.addedAt||0)-(y.addedAt||0)});
   _pw.list=arr;
+  if(st.mode==='one'||st.mode==='rand'||st.mode==='loop')_pw.mode=st.mode;
+  if(st.currentId){var ix=arr.findIndex(function(x){return x&&x.id===st.currentId});if(ix>=0)_pw.idx=ix;else if(arr.length){_pw.idx=Math.max(0,Math.min(_pw.idx,arr.length-1));_pwStateSave({currentId:arr[_pw.idx].id,currentTime:0,queueIds:arr.map(function(x){return x.id})})}}
   if(_pw.idx>=arr.length)_pw.idx=arr.length?arr.length-1:-1;
+  if(_pw.idx<0&&arr.length&&st.currentId)_pw.idx=0;
+  if(!_pwRestored&&_pw.idx>=0){_pwRestored=true;_pwRestoreAudio(arr[_pw.idx],Number(st.currentTime)||0)}
 }
 function _pwSrc(r){
   if(_pw.url){try{URL.revokeObjectURL(_pw.url)}catch(e){}_pw.url=''}
@@ -13791,6 +13828,7 @@ function _pwTime(){
   var c=$('pw-cur'),d=$('pw-dur');
   if(c)c.textContent=_pw.idx>=0?_pwFmt(cu):'--:--';
   if(d)d.textContent=(_pw.idx>=0&&isFinite(du))?_pwFmt(du):'--:--';
+  if(_pw.idx>=0&&a&&!a.paused)_pwStateSaveSoon();
 }
 async function _pwPlayIdx(i){
   await _pwLoad();
@@ -13799,6 +13837,7 @@ async function _pwPlayIdx(i){
   _pw.idx=i;
   var a=_pwA();a.src=_pwSrc(_pw.list[i]);
   try{await a.play()}catch(e){toast('播放失败')}
+  _pwHistoryAdd(_pw.list[i]);
   _pwPaint();_pwListDraw();
 }
 function _pwRand(){
@@ -13812,7 +13851,7 @@ function _pwEnded(){
   _pwPlayIdx(_pw.idx+1);
 }
 async function _pwLoadMode(){
-  try{await loadMP();var m=_mp.ui&&_mp.ui.musicMode;if(m==='one'||m==='rand'||m==='loop')_pw.mode=m}catch(e){}
+  try{await loadMP();var m=(_pwStateLoad().mode)||(_mp.ui&&_mp.ui.musicMode);if(m==='one'||m==='rand'||m==='loop')_pw.mode=m}catch(e){}
 }
 async function _pwSync(){/* Desk 渲染包装器调用：按库里真值刷曲库与面板 */
   await _pwLoadMode();await _pwLoad();_pwPaint();
@@ -13896,7 +13935,7 @@ async function _neteaseAddTrackM(song,playNow){
     await dbPut('music',rec);
   }
   await _pwLoad();var ix=_pw.list.findIndex(function(x){return x&&x.id===id});
-  if(playNow&&ix>=0)await _pwPlayIdx(ix);else{_pwPaint();_pwListDraw()}
+  if(playNow&&ix>=0)await _pwPlayIdx(ix);else{_pwStateSaveNow();_pwPaint();_pwListDraw()}
   return rec
 }
 async function _neteaseSearchPlayM(q){
@@ -13917,7 +13956,7 @@ async function _pwAddFiles(files){
     var rec={id:'msong_'+Date.now()+'_'+Math.floor(Math.random()*1e5),name:f.name||'音频',type:f.type||'',size:f.size||0,addedAt:Date.now(),src:'mobile',blob:f};
     try{await dbPut('music',rec);ok++}catch(e){}
   }
-  if(ok){toast('已添加 '+ok+' 首');var first=_pw.idx<0;await _pwLoad();_pwPaint();_pwListDraw();if(first)_pwPlayIdx(_pw.list.length-ok)}
+  if(ok){toast('已添加 '+ok+' 首');var first=_pw.idx<0;await _pwLoad();_pwStateSaveNow();_pwPaint();_pwListDraw();if(first)_pwPlayIdx(_pw.list.length-ok)}
   else toast('添加失败');
 }
 function _pwListDraw(){
@@ -13942,6 +13981,7 @@ function _pwListDraw(){
         _pw.idx=_pw.list.length?Math.min(i,_pw.list.length-1):-1;
         if(_pw.idx>=0)_pwPlayIdx(_pw.idx);
       }else if(i<_pw.idx)_pw.idx--;
+      _pwStateSaveNow();
       _pwPaint();_pwListDraw();
     });
     box.appendChild(row);
@@ -13954,11 +13994,12 @@ function _pwListDraw(){
     if(_pw.idx<0){_pwPlayIdx(0);return}
     if(a.paused)a.play().catch(function(){toast('播放失败')});else a.pause();
   });
-  $('pw-prev').addEventListener('click',function(){if(_pw.mode==='rand')_pwPlayIdx(_pwRand());else _pwPlayIdx(_pw.idx<0?0:_pw.idx-1)});
-  $('pw-next').addEventListener('click',function(){if(_pw.mode==='rand')_pwPlayIdx(_pwRand());else _pwPlayIdx(_pw.idx<0?0:_pw.idx+1)});
+  $('pw-prev').addEventListener('click',async function(){await _pwLoad();if(_pw.mode==='rand')_pwPlayIdx(_pwRand());else _pwPlayIdx(_pw.idx<0?0:_pw.idx-1)});
+  $('pw-next').addEventListener('click',async function(){await _pwLoad();if(_pw.mode==='rand')_pwPlayIdx(_pwRand());else _pwPlayIdx(_pw.idx<0?0:_pw.idx+1)});
   $('pw-mode').addEventListener('click',async function(){
     _pw.mode=_pw.mode==='loop'?'one':(_pw.mode==='one'?'rand':'loop');
     _pwPaint();
+    _pwStateSaveNow();
     try{await loadMP();_mp.ui=_mp.ui||{};_mp.ui.musicMode=_pw.mode;await saveMP()}catch(e){}
   });
   /* v111-m：所有“+ / 添加音乐 / 导入歌词”统一走一个文件选择器。change 固定绑定一次，避免 MUSIC 顶栏首次添加选完无响应。 */
@@ -13991,9 +14032,11 @@ function _pwListDraw(){
   $('pw-add').addEventListener('click',function(e){e.stopPropagation();pick()});
   $('pw-add2').addEventListener('click',pick);
   $('pw-info').addEventListener('click',async function(){await _pwLoad();openSheet('sheet-music');_pwListDraw()});
+  window.addEventListener('beforeunload',_pwStateSaveNow);
+  document.addEventListener('visibilitychange',function(){if(document.visibilityState==='hidden')_pwStateSaveNow();else _pwSync().catch(function(){})});
   (function(){/* v12 任务④ BUG：#pw-bar 嵌在 #pw-info 里，此前 click 寻址不阻断冒泡——每次点按/拖完抬手都会触发 pw-info 的曲库弹层（误触根因）。改 pointer capture 拖拽寻址＋全程 stopPropagation */
     var bar=$('pw-bar'),_dr=false;
-    function _seek(x){var a=_pw.a;if(!a||!isFinite(a.duration)||_pw.idx<0)return;var r=bar.getBoundingClientRect();a.currentTime=Math.max(0,Math.min(1,(x-r.left)/Math.max(1,r.width)))*a.duration;_pwTime()}
+    function _seek(x){var a=_pw.a;if(!a||!isFinite(a.duration)||_pw.idx<0)return;var r=bar.getBoundingClientRect();a.currentTime=Math.max(0,Math.min(1,(x-r.left)/Math.max(1,r.width)))*a.duration;_pwTime();_pwStateSaveNow()}
     bar.addEventListener('pointerdown',function(e){e.stopPropagation();_dr=true;try{bar.setPointerCapture(e.pointerId)}catch(x){}_seek(e.clientX)});
     bar.addEventListener('pointermove',function(e){if(_dr){e.stopPropagation();_seek(e.clientX)}});
     ['pointerup','pointercancel'].forEach(function(ev){bar.addEventListener(ev,function(e){if(_dr){e.stopPropagation();_dr=false}})});
@@ -17958,7 +18001,7 @@ _pwAddFiles=async function(files,ctx){
     if(ids.length)toast('已添加 '+ids.length+' 首'+(failed?' · '+failed+' 首失败':'')+(lk?' · 绑定 '+lk+' 份歌词':''));
     else toast('音乐添加失败，请检查浏览器存储空间或文件格式');
   }else if(lyr.length)toast(lk?(ctx.mode==='lyrics'&&ctx.trackId&&lyr.length===1?'歌词已绑定到当前歌曲':'歌词已绑定'):'歌词解析失败，或没有找到可绑定的歌曲');
-  _pwPaint();_pwListDraw();try{if(window._maRefreshMusicM)window._maRefreshMusicM()}catch(e){}
+  _pwStateSaveNow();_pwPaint();_pwListDraw();try{if(window._maRefreshMusicM)window._maRefreshMusicM()}catch(e){}
   if(first&&ids.length){var ix=_pw.list.findIndex(function(r){return r.id===ids[0]});if(ix>=0)_pwPlayIdx(ix)}
 };
 _pwPlayIdx=async function(i){
@@ -17966,6 +18009,7 @@ _pwPlayIdx=async function(i){
   try{if(rec&&rec.src==='netease')rec=await _neteasePlayableM(rec)}catch(e){toast(String(e&&e.message||'当前歌曲暂无可用播放源'));_pwPaint();_pwListDraw();return}
   a.src=_pwSrc(rec);try{await a.play()}catch(e){toast('播放失败')}
   if(rec&&rec.src==='netease')_neteaseLyricsM(rec).then(function(){try{_pwLoad().then(function(){_pwPaint();_pwListDraw();if(window._maRefreshMusicM)window._maRefreshMusicM()})}catch(e){}}).catch(function(){});
+  _pwHistoryAdd(rec);
   _pwPaint();_pwListDraw();try{await loadMP();_musicEnsureM(rec,!!(_mp.musicAi&&_mp.musicAi.share))}catch(e){_musicEnsureM(rec,false)}_musicSyncCardsM()
 };
 async function _musicEnsureM(rec,wantTranscript){
