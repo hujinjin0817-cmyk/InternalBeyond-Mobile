@@ -538,56 +538,72 @@ function filteredResponseHeaders(response, request) {
 
 export default {
   async fetch(request, env) {
-    if (request.method === "OPTIONS") {
-      return withCors(request, null, { status: 204 });
-    }
-    const url = new URL(request.url);
-    if (url.pathname.startsWith("/sync/v1/")) {
-      return handleSync(request, env);
-    }
-    if (
-      url.pathname.startsWith("/netease/") ||
-      url.pathname.startsWith("/api/music/") ||
-      url.pathname.startsWith("/api/netease/")
-    ) {
-      return handleNetease(request, env);
-    }
-
-    let target;
     try {
-      target = targetFromRequest(request);
-    } catch (response) {
-      return withCors(request, response.body, {
-        status: response.status,
-        headers: response.headers,
-      });
-    }
+      if (request.method === "OPTIONS") {
+        return withCors(request, null, { status: 204 });
+      }
+      const url = new URL(request.url);
+      if (url.pathname.startsWith("/sync/v1/")) {
+        return handleSync(request, env);
+      }
+      if (
+        url.pathname.startsWith("/netease/") ||
+        url.pathname.startsWith("/api/music/") ||
+        url.pathname.startsWith("/api/netease/")
+      ) {
+        return handleNetease(request, env);
+      }
 
-    if (!target) {
-      if (request.method === "GET") {
-        return withCors(request, "MCP Proxy is running", {
-          status: 200,
-          headers: { "Content-Type": "text/plain; charset=utf-8" },
+      let target;
+      try {
+        target = targetFromRequest(request);
+      } catch (response) {
+        return withCors(request, response.body, {
+          status: response.status,
+          headers: response.headers,
         });
       }
-      return withCors(request, "Missing target URL. Use ?u=", { status: 400 });
+
+      if (!target) {
+        if (request.method === "GET") {
+          return withCors(request, "MCP Proxy is running", {
+            status: 200,
+            headers: { "Content-Type": "text/plain; charset=utf-8" },
+          });
+        }
+        return withCors(request, "Missing target URL. Use ?u=", { status: 400 });
+      }
+
+      if (!["GET", "POST", "DELETE"].includes(request.method)) {
+        return withCors(request, "Method not allowed", { status: 405 });
+      }
+
+      const upstream = await fetch(target.toString(), {
+        method: request.method,
+        headers: filteredRequestHeaders(request),
+        body: ["GET", "HEAD"].includes(request.method) ? undefined : request.body,
+        redirect: "manual",
+      });
+
+      return new Response(upstream.body, {
+        status: upstream.status,
+        statusText: upstream.statusText,
+        headers: filteredResponseHeaders(upstream, request),
+      });
+    } catch (error) {
+      console.error("Worker request failed", {
+        path: new URL(request.url).pathname,
+        message: error && error.message ? error.message : String(error),
+      });
+      return jsonCors(
+        request,
+        {
+          ok: false,
+          error: "Worker request failed",
+          message: error && error.message ? error.message : String(error),
+        },
+        { status: 500 }
+      );
     }
-
-    if (!["GET", "POST", "DELETE"].includes(request.method)) {
-      return withCors(request, "Method not allowed", { status: 405 });
-    }
-
-    const upstream = await fetch(target.toString(), {
-      method: request.method,
-      headers: filteredRequestHeaders(request),
-      body: ["GET", "HEAD"].includes(request.method) ? undefined : request.body,
-      redirect: "manual",
-    });
-
-    return new Response(upstream.body, {
-      status: upstream.status,
-      statusText: upstream.statusText,
-      headers: filteredResponseHeaders(upstream, request),
-    });
   },
 };
