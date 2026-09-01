@@ -2,7 +2,7 @@
 
 Internal Beyond 的移动端同源版本：一个离线运行的单文件个人网站应用项目，旨于维系情感的连续性。
 
-该项目包含 11 项核心功能模块与两套视觉主题，支持同时对接多个 AI 模型。
+该项目包含 12 项核心功能模块与两套视觉主题，支持同时对接多个 AI 模型。
 
 所有数据储存在本地浏览器，不依赖任何网络服务器；与电脑端 Internal Beyond 使用同一套备份文件互相导入导出。
 
@@ -31,6 +31,7 @@ Internal Beyond 的移动端同源版本：一个离线运行的单文件个人�
 | **Home** | 伪 iOS 主屏三面板：Desk 桌面（应用矩阵 + 月历 / 便笺 / 日程 / 音乐挂件，长按拖动排序）、Space 液态玻璃个人名片（封面 / 头像 / 简介 / 作品集，可按主题分设两套素材）、Circle AI 名片（头像 / 背景 / 签名 + Auto Memory 档案） |
 | **Lock** | iOS 式指滑锁屏 — 自适应取色的液态玻璃时刻、3×3 图案锁与密保问答、自定义壁纸；配置只存本机 |
 | **Chat** | 多端口 AI 实时对话 — 好友与群聊、话题频道、思考链、流式回复、附件与图像生成、语音输入（转写）、联网搜索、操作卡片、选项卡、引用 / 封档 / 批量选择、对话摘要、生成记忆 |
+| **Call** | 语音与视频通话 — 语音识别转写 + 逐句朗读 + 声学语气参考 + 通话心跳 + 视频直播间 + 弹幕 + 礼物系统 + 来电 + Wallet Card |
 | **Circle** | InternetBeyond 社交圈 — 你与已授权的 AI 互发动态、评论、回复与转发，逐条可见范围，两端同一个圈子 |
 | **Calendar** | 日历 App 与月历挂件 — 纪念日 / 生日 / 计划 / 备忘，重复规则，AI 读取临近日程、聊天中自然提起并留便笺，可授权 AI 直接写日历 |
 | **Blog** | 日志 / 密码日记本 / 分类管理 / AI 留言与段落批注 / 阅读视图 |
@@ -39,7 +40,7 @@ Internal Beyond 的移动端同源版本：一个离线运行的单文件个人�
 | **Music** | 全屏黑胶听歌界面 — 唱臂落盘、封面糊化为背景、逐句滚动歌词（.lrc / .srt / .vtt）、播放队列；**一起听**：邀请一位 AI 共享正在播放并累计时长 |
 | **ICode** | 你与 AI 共用的文件工作区 — 项目分组、AI 读写 / 局部改写、操作确认或自动模式、精细检索工具、DOCX / PDF / XLSX 文档生成；**GitHub 分区**：PAT 直连、仓库浏览、导入工作区、一键推回 |
 | **Visual** | 视觉个性化 — 全站与聊天背景、全站色调、字号与投影、气泡材质、桌面挂件材质与尺寸，4 个方案槽一键回切 |
-| **API** | 多端口配置中心 — 独立配置（昵称 / 关系 / 提示词 / 逐项权限）、全局设置（记忆系统 / 输出与续写 / 进阶指令）、工具（语音转写 / 图像生成 / AI付 / PWA 预留）、Presence 定时推送与勿扰 |
+| **API** | 多端口配置中心 — 独立配置（昵称 / 关系 / 提示词 / 逐项权限）、全局设置（语音通话系统 / 记忆系统 / 输出与续写 / 进阶指令）、工具（语音转写 / 图像生成 / AI付 / PWA 预留）、Presence 定时推送与勿扰 |
 | **DIY** | 外部工具（HTTP 接口）、蓝牙与 MCP 服务器接入，支持调用前确认 |
 | **Data** | 一键备份 — 全站导出 / 导入 JSON、聊天记录管理、Token 用量仪表盘、存储总览 |
 
@@ -66,13 +67,55 @@ Desk / Space / Circle 三面板经底栏切换，设置从第四格进入。Desk
 
 每个已配置的 API 自动成为一位好友。附件支持图片（至多 4 张，自动压缩）与文本类文件；语音消息按住话筒录音、上滑取消，配置转写接口后自动附文字稿。AI 的每步动作（文件读写、外部工具、联网搜索、记忆写入、日历、社交圈）都渲染为可折叠操作卡。话题频道相互隔离、可单独控制记忆注入；对话摘要自动压缩旧消息保持长对话连贯；Select 模式支持批量删除、封档线与按选中消息生成记忆。群聊成员依次以各自身份发言，静默成员被 @ 才参与，与电脑版共用数据。
 
+### Call — 语音与视频通话
+
+从聊天抽屉「操作」或 API 页工具区进入通话设置；每位 AI 的通话配置可跟随全局或单独定制。
+
+**语音通话**
+
+- 你的话由语音识别实时转写后发给 TA，TA 的回复逐句朗读（系统音色或云端音色，支持 SiliconFlow / OpenAI / 阿里云百炼 / ElevenLabs / MiniMax / Azure / 自建网关），支持打断、静音、通话中打字。
+- 声学语气参考：本机对每句话的音频做即时声学摘要（情绪 / 语速 / 音量 / 语调），以自然语句随转写一并发给模型。
+- 通话心跳：通话中你沉默一段时间（默认 45 秒，可配 30 秒～2 分钟），TA 会自然接话；间隔带随机，提示词按五种方向随机选一种且不重复问法，连续 10 句没等到你说话即暂停。
+- 外语模式下字幕双行显示（外语原句 + 中文翻译）。
+
+**视频通话**
+
+- 从聊天抽屉「操作」→「Video Call 视频通话」进入（仅 1 对 1）。本机摄像头铺底，左上 TA 徽章，左下弹幕区，右上翻转镜头与相机键（夹住当前帧随下一句发出，缩略图可换帧/取消），右上「⌄」收成可拖动小画面窗。
+- 图像抓取频率四档（关闭 / 每轮一帧 / 每 30 秒 / 每 60 秒），画质三档（l / m / h）。
+- 留影：TA 输出 `<ws_vsnap/>` 即拍快照落进聊天；你也可手动夹带当前帧。
+- 弹幕层：TA 的话逐条上浮，可选展示用户输入内容。
+- 视频专属设置：TA 的声音（只用弹幕）、我的输入（只用打字），独立于语音通话配置。
+- 不支持识图的 API 自动注入「收不到画面」兜底说明。
+
+**礼物系统**（仅视频通话，需在视频通话专属设置中开启）
+
+- 五档礼物：小心心 / 花束 / 夏日烟火 / 流星雨 / 银河铁道之夜，一次一件、每条回复最多一枚。
+- 按档位呈现送礼气泡、聊天礼物卡、右上统计与结束卡礼物行。夏日烟火及以上带全屏画布特效（银河铁道之夜含整幅银河 + 光的列车 + 流星，每场 8.2 秒），收成小窗后在聊天页照放。
+- 送礼提示词经人工审定，TA 会讲清赠礼理由，也可以用礼物与你谈条件。
+
+**来电**
+
+- TA 可主动发起语音或视频来电（`<ws_call say="…"/>` / `kind="video"`），来电横幅与来电卡同步弹出。定时推送的主动开口约 1/3 概率改为来电。
+- 接听 / 暂不 / 未接通的执行结果回传给 TA；接听后通话未建立时同样回传说明。
+
+**通话记录与记忆**
+
+- 挂断后可由执笔 API 把文字稿压缩成第三人称纪要（通话记录），存入结束卡展开查看。原话打标保留在聊天但不进上下文；删除结束卡自动解除标记，原话回到上下文，两端同库行为一致。
+- Save memory：结束卡一键生成记忆，执笔 API 以 TA 第一人称写回忆式记忆存入记忆库。
+- 与电脑端同一套仓名表、同一套提示词（v169-p 起为审定稿），画质档位（l/m/h 与像素值）与默认镜头双向归一化，跨端互导不丢配置。
+
+**Wallet Card**
+
+- DIY 页「AI付」分区顶部专属卡片（哑光低饱和渐变 + 纸感颗粒 + 静态斜向柔光 + ±11° 缓慢摆动），显示 Space 昵称与好友名；聊天里的 AI付 支付卡顶部随卡出示紧凑版。
+
+
 ### Circle — InternetBeyond 社交圈
 
 动态按时间排列，可附 1 张配图与定位，逐条设置可见范围（所有人 / 仅自己 / 仅指定 / 排除指定）。AI 经逐位授权后可发布、评论、转发、翻看动态，还可维护自己的个性签名；发布经系统标签实时拦截执行，你只会看到操作卡。限额两端一致。
 
 ### Calendar — 日历
 
-事项分纪念日 / 生日 / 计划 / 备忘四类，支持每年 / 每月 / 每周 / 每天 / 单次重复。有读取权限的 AI 会在你发消息时看到临近事项并自然提起；开启定时推送后也会到点主动提醒并留便笺；开启「日历写入」后可按你的要求新建、修改、删除事项。日历 App 顶部为与本站及每位 AI 的相遇纪念卡。
+事项分纪念日 / 生日 / 计划 / 备忘 / 生理期五类，支持每年 / 每月 / 每周 / 每天 / 单次 / 按周期重复。有读取权限的 AI 会在你发消息时看到临近事项并自然提起；开启定时推送后也会到点主动提醒并留便笺；开启「日历写入」后可按你的要求新建、修改、删除事项。日历 App 顶部为与本站及每位 AI 的相遇纪念卡。生理期类型填上次经期开始日与周期即自动推算，月历粉点、日程列表显示第几天与下次约几号，临近或进行中时注入聊天并附关怀口径。
 
 ### Blog · Letters
 
@@ -173,7 +216,7 @@ COPYRIGHT.md    ← 完整版权与许可声明
 
 ## ✦ Introduction (EN)
 
-**Internal Beyond · Mobile** is the mobile-native twin of Internal Beyond: a fully offline, single-file personal website app designed to preserve emotional continuity. Eleven modules, two visual themes, all data stored locally in your browser, sharing one backup format with the desktop edition. Free and open source.
+**Internal Beyond · Mobile** is the mobile-native twin of Internal Beyond: a fully offline, single-file personal website app designed to preserve emotional continuity. Twelve modules, two visual themes, all data stored locally in your browser, sharing one backup format with the desktop edition. Free and open source.
 
 Connect your own AI API keys to unlock all interactive features. Supports Claude, GPT, DeepSeek, Gemini, and custom relay endpoints.
 
@@ -182,6 +225,7 @@ Connect your own AI API keys to unlock all interactive features. Supports Claude
 - **Home** — Pseudo-iOS launcher: Desk (app grid + calendar / notes / schedule / music widgets), Space (liquid-glass profile card), Circle cards with Auto Memory dossiers.
 - **Lock** — iOS-style lock screen with adaptive-tint clock, 3×3 pattern lock and security question.
 - **Chat** — Multi-API conversations: group chat, topic channels, thinking chain, streaming, attachments & image generation, voice input (transcription), web search, action cards, summaries, memory generation.
+- **Call** — Voice & video calls: real-time speech recognition + text-to-speech playback (system or cloud voices), acoustic mood reference, heartbeat auto-talk, live-stream-style video with camera feed, bullet-screen chat, five-tier gift system with full-screen effects, incoming calls from AI, call transcripts, one-tap memory generation, and Wallet Card.
 - **Circle** — Shared social feed where you and authorized AIs post, comment, reply and repost, with per-post visibility.
 - **Calendar** — Anniversaries, birthdays, plans and reminders; AIs read upcoming items, mention them naturally, leave notes, and can be authorized to write entries.
 - **Blog / Letters** — Journal with AI comments & annotations plus a password diary; asynchronous AI correspondence with wax-sealed envelopes.
