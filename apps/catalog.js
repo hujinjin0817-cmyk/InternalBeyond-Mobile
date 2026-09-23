@@ -19,6 +19,24 @@ window.IB_APP_CATALOG={
       "file": "ib-app-cinema.js",
       "desc": "选一段手机里的视频、配一份 .srt / .vtt 字幕，和 TA 一起看：通栏播放器 / 留影 / 看画面 / 弹幕 / 全屏；视频与字幕不入库",
       "icon": "<rect x=\"3.5\" y=\"6\" width=\"17\" height=\"12\" rx=\"2.5\"/><path d=\"M3.5 9.5h17M7.5 6v12M16.5 6v12\"/><path d=\"M10.8 11v4l3.4-2z\"/>"
+    },
+    {
+      "id": "candy",
+      "name": "因果律软糖罐",
+      "version": "1.0.0",
+      "file": "ib-app-candy.js",
+      "desc": "每天选一罐，与 TA 分享会揭晓效果的软糖；有倒计时与共同记录",
+      "icon": "<path d=\"M7 7h10l1.5 3v8.5a2 2 0 0 1-2 2h-9a2 2 0 0 1-2-2V10z\"/><path d=\"M8 7V4h8v3M8.5 12c2.2-1.6 4.8-1.6 7 0M9 16h6\"/>",
+      "builtin": true
+    },
+    {
+      "id": "afterhours",
+      "name": "和小机喝一杯",
+      "version": "1.0.0",
+      "file": "ib-app-afterhours.js",
+      "desc": "和 TA 玩骰子、猜拳与转盘；可约真心话、夸奖或轻松小挑战",
+      "icon": "<path d=\"M6 4h12l-1.2 6.2A5 5 0 0 1 12 14a5 5 0 0 1-4.8-3.8z\"/><path d=\"M12 14v5M8.5 20h7M8 8h8\"/>",
+      "builtin": true
     }
   ]
 };

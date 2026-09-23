@@ -1,7 +1,7 @@
 /* Mian — ib-sw.js（Service Worker 模板 · 联网优先，离线回退）
    与手机端 HTML 放在同一目录，经 HTTPS 访问时页面会自动注册本文件。
    只接管本站的 GET 请求；发往 AI 服务商 / 中转站的请求原样放行、绝不缓存。 */
-const IB_CACHE='mian-cache-v1';
+const IB_CACHE='mian-cache-v2';
 const NAV_TIMEOUT=20000,ASSET_TIMEOUT=9000,FAST_FALLBACK=3500;
 self.addEventListener('install',function(){self.skipWaiting()});
 self.addEventListener('activate',function(e){e.waitUntil(caches.keys().then(function(ks){return Promise.all(ks.filter(function(k){return k!==IB_CACHE}).map(function(k){return caches.delete(k)}))}).then(function(){return self.clients.claim()}))});
