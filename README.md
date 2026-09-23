@@ -1,3 +1,13 @@
+# Mian 2.0（私人改造分支）
+
+Mian 是面向个人使用的生活计划与 AI 对话空间。本分支先完成独立品牌、粉紫液态玻璃主题、PWA 图标与默认运行文案；底层继续沿用原项目成熟的聊天、API、MCP、记忆、日历与本地数据能力，后续再逐步接入 Mian 现有的计划和睡眠模块。
+
+本分支基于 [InternalBeyond-Mobile](https://github.com/Sui-IB/InternalBeyond-Mobile) 修改，遵循仓库内 PolyForm Noncommercial License 1.0.0。原作者署名、版权说明与许可文件均保留；Mian 不代表原作者的官方版本。
+
+---
+
+## 上游项目说明
+
 # InternalBeyond-Mobile（IB-Mobile）（IB机）
 
 Internal Beyond 的移动端同源版本：一个离线运行的单文件个人网站应用项目，旨于维系情感的连续性。
