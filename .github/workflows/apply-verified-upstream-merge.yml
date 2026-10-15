@@ -24,6 +24,8 @@ jobs:
           expected="08449c2d5ab656f2ed5c725e037ee6cdcc9eab48"
           actual="$(git rev-parse HEAD)"
           test "$actual" = "$expected" || { echo "Branch changed: $actual"; exit 1; }
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git remote add official https://github.com/Sui-IB/InternalBeyond-Mobile.git
           git fetch official main
           test "$(git rev-parse official/main)" = "f8a3e1459c9e48e879692659623fb376f6b1fe47" || { echo "Upstream changed; stopping."; exit 1; }
@@ -3828,7 +3830,5 @@ jobs:
           grep -F 'id="cloud-sync-card"' index.html
           grep -F 'id="ib-media-card"' index.html
           grep -F "var IB_VER='v350-p'" index.html
-          git config user.name github-actions[bot]
-          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git commit -m "chore: merge Sui-IB upstream and preserve Mian customizations"
           git push origin HEAD:mian-personal
