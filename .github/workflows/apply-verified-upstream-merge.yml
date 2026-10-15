@@ -1,0 +1,54 @@
+name: Apply verified upstream merge
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/apply-verified-upstream-merge.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: mian-personal
+          fetch-depth: 0
+      - name: Merge official upstream with verified conflict resolution
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected="08449c2d5ab656f2ed5c725e037ee6cdcc9eab48"
+          actual="$(git rev-parse HEAD)"
+          test "$actual" = "$expected" || { echo "Branch changed: $actual"; exit 1; }
+          git remote add official https://github.com/Sui-IB/InternalBeyond-Mobile.git
+          git fetch official main
+          test "$(git rev-parse official/main)" = "f8a3e1459c9e48e879692659623fb376f6b1fe47" || { echo "Upstream changed; stopping."; exit 1; }
+          set +e
+          git merge --no-ff --no-commit official/main
+          merge_rc=$?
+          set -e
+          test "$merge_rc" -ne 0 || { echo "Expected the reviewed conflicts but merge was clean; stopping."; git merge --abort; exit 1; }
+          conflicts="$(git diff --name-only --diff-filter=U | sort)"
+          test "$conflicts" = "$(printf 'README.md\nindex.html')" || { echo "Unexpected conflicts:"; printf '%s\n' "$conflicts"; git merge --abort; exit 1; }
+          git checkout official/main -- README.md index.html
+          base64 -d > /tmp/verified-resolution.patch <<'PATCH_B64'
+          U3lzdGVtLk9iamVjdFtdClN5c3RlbS5PYmplY3RbXQo=
+          PATCH_B64
+          git apply --check /tmp/verified-resolution.patch
+          git apply /tmp/verified-resolution.patch
+          git add README.md index.html tests/verify-custom-features.js
+          test -z "$(git diff --name-only --diff-filter=U)"
+          git diff --cached --check
+          ! grep -nE '^(<<<<<<<|=======|>>>>>>>)' README.md index.html
+          grep -F 'id="cgpt-sub-card"' index.html
+          grep -F 'id="cloud-sync-card"' index.html
+          grep -F 'id="ib-media-card"' index.html
+          grep -F "var IB_VER='v350-p'" index.html
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git commit -m "chore: merge Sui-IB upstream and preserve Mian customizations"
+          git push origin HEAD:mian-personal
