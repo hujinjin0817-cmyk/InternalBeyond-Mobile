@@ -2548,15 +2548,15 @@ self.addEventListener(&#x27;fetch&#x27;,function(e){
         <p><strong>⑥ 打开验证</strong>：用手机浏览器访问这个网址，能看到应用界面就成功了。若第③步没有改名 index.html，网址末尾要补上「/原文件名.html」。</p>
         <p class="hint" style="margin:6px 0 0">熟悉 Git 的话，直接把这 5 个文件 push 到仓库，效果完全相同。</p>
         <div class="g-name">第二步（更省事）· Fork 仓库部署，一键跟进更新</div><!-- v141-p：⑥ Fork 部署与更新教程 -->
-        <p>手机端源码公开在 <a href="https://github.com/Sui-IB/InternalBeyond-Mobile" target="_blank" rel="noopener">github.com/Sui-IB/InternalBeyond-Mobile</a>。与其手动上传 5 个文件，不如直接 Fork（复制）这个仓库到自己名下：运行文件已经齐全、目录结构也对，以后发新版只需点一次「Sync fork」。</p>
+        <p>手机端源码公开在 <a href="https://github.com/Sui-IB/InternalBeyond-Mobile" target="_blank" rel="noopener">github.com/Sui-IB/InternalBeyond-Mobile</a>。没有定制代码的 Fork 可直接同步；已经加入个人功能的 Fork 必须使用仓库 Actions 里的「Safe upstream merge」，让 Git 以合并方式保留两边历史。</p>
         <p><strong>① Fork</strong>：登录 GitHub 后打开上面的仓库地址，点右上角「Fork」，保持默认设置，点「Create fork」。几秒后会跳到你名下的副本（网址形如 github.com/你的用户名/InternalBeyond-Mobile）。</p>
         <p><strong>② 开启网页服务</strong>：在副本仓库点「Settings」→ 左栏「Pages」→ Build and deployment 里 Source 选「Deploy from a branch」，Branch 选 main、文件夹选 /(root)，点 Save。</p>
         <p><strong>③ 拿到网址</strong>：等一到两分钟后刷新这一页，顶部出现你的专属网址，形如 https://你的用户名.github.io/InternalBeyond-Mobile/。用手机浏览器打开，看到应用界面即部署完成，之后按下方「第三步」安装到桌面。</p>
-        <p><strong>④ 更新到新版</strong>：发布新版后，打开你的副本仓库页面，文件列表上方会出现「This branch is N commits behind」提示，点旁边的「Sync fork」→「Update branch」。等一到两分钟 Pages 自动重新发布；然后在手机上彻底关闭应用再打开一次（必要时再刷新一次）。ib-sw.js 是联网优先策略，会自动换成新文件。</p>
+        <p><strong>④ 更新到新版</strong>：本定制版打开仓库「Actions」→「Safe upstream merge」→「Run workflow」。工作流执行 <code>git merge</code> 把 <code>Sui-IB/InternalBeyond-Mobile</code> 的 <code>main</code> 合入 <code>mian-personal</code>；成功后自动推送并触发 Pages 部署。</p>
         <div class="g-sub">
           <p><strong>更新会不会丢数据</strong>：不会。对话、记忆、设置都存在手机浏览器本地，与仓库里的文件无关；网址不变，数据就在。稳妥起见，大版本更新前仍建议到 Data 页导出一份备份。</p>
-          <p><strong>Sync fork 提示冲突</strong>：说明你改过副本里的文件（例如换过图标）。最省事的处理是点「Discard commits」放弃自己的改动再同步，之后把改动重做一遍；或者改用手动上传方式，只替换 index.html。</p>
-          <p><strong>改名与图标</strong>：Android 安装名称与图标取自仓库里的 manifest.webmanifest 与两张 PNG，改完提交到副本即可；这类改动会在下次 Sync fork 时触发上面的冲突提示。</p>
+          <p><strong>发生冲突</strong>：工作流会立刻失败、列出冲突文件、执行 <code>git merge --abort</code>，不会 commit，也不会 push。请在独立分支人工解决后再合并；不得使用「Discard commits」、强推或任何覆盖定制历史的方式。</p>
+          <p><strong>改名与图标</strong>：Android 安装名称与图标取自仓库里的 manifest.webmanifest 与两张 PNG，改完提交到定制分支即可；安全合并会保留这些提交，有冲突时按上一条停止处理。</p>
           <p><strong>与手动上传的关系</strong>：两种方式二选一，效果相同。已经手动部署过的不必迁移；想省事就新建一个 Fork 副本，在新网址上从 Data 页导入旧备份。</p>
         </div>
         <div class="g-name">第三步（安卓）· 安装到桌面</div>
@@ -2582,7 +2582,7 @@ self.addEventListener(&#x27;fetch&#x27;,function(e){
       <div class="g-sec">
         <div class="g-name">使用边界与更新</div>
         <p><strong>离线边界</strong>：首次联网打开后，界面与本地数据在离线时仍可使用；AI 对话、联网搜索、图像生成、GitHub、MCP / 外部工具等需要网络的功能，离线时仍然不可用。</p>
-        <p><strong>更新</strong>：替换服务器上的 HTML 或 ib-sw.js 后，重新打开页面即会加载新版本（模板为联网优先）；Fork 部署的仓库点「Sync fork」即可（见第二步）；个别浏览器可能短暂沿用旧文件。需要清除该站点数据来强制刷新前，请先在 Data 页导出备份。</p>
+        <p><strong>更新</strong>：替换服务器上的 HTML 或 ib-sw.js 后，重新打开页面即会加载新版本（模板为联网优先）；本定制 Fork 只使用「Safe upstream merge」同步上游（见第二步）。个别浏览器可能短暂沿用旧文件。需要清除该站点数据来强制刷新前，请先在 Data 页导出备份。</p>
         <p><strong>数据与备份</strong>：数据绑定在「该网址 + 该浏览器」的本地存储上。换域名、换浏览器、清除网站数据或卸载重装之前，务必先在 Data 页导出备份，再到新环境导入。</p>
         <p><strong>自定义名称与图标</strong>：PWA 预留卡继续控制本机 iOS / 书签图标、名称、状态栏主题色与安全区。Android / Chromium 的正式安装名称与图标由仓库中的 manifest.webmanifest、icon-192.png、icon-512.png 决定；发布者需要改这三个文件后再提交到仓库。</p>
         <div class="g-name">部署之后，隐私边界有什么变化</div>
@@ -3103,6 +3103,16 @@ self.addEventListener(&#x27;fetch&#x27;,function(e){
         <div id="api-list"></div>
         <button class="btn wide" id="api-add">＋ 添加API</button>
       </div>
+      <div class="sec-label">ChatGPT 订阅通道</div>
+      <div class="card fx-card" id="cgpt-sub-card">
+        <div class="fx-ico"><svg viewBox="0 0 24 24"><path d="M12 3.5a4.4 4.4 0 0 1 4.1 2.8 4.4 4.4 0 0 1 3.3 6.7 4.4 4.4 0 0 1-4.1 6.5 4.4 4.4 0 0 1-7.4-2.2 4.4 4.4 0 0 1-3.3-6.7A4.4 4.4 0 0 1 8.7 4a4.4 4.4 0 0 1 3.3-.5z"/><path d="M8.1 8.2l3.9-2.3 3.9 2.3v4.6L12 15.1l-3.9-2.3zM8.1 12.8v4.5l3.9 2.2 3.9-2.2v-4.5"/></svg></div>
+        <div class="cm-sub-t">ChatGPT Plus / Pro · 安全交接</div>
+        <p class="hint" style="margin-top:4px">把当前对话最近 40 条与这位 TA 的人设复制到剪贴板，再在 ChatGPT 中继续；完成后可把回复粘贴回来。不会读取 ChatGPT Cookie，也不会把订阅伪装成 API Key。官方订阅 OAuth 目前要求本机 <code>127.0.0.1</code> 回调监听器和受保护凭据存储，GitHub Pages 纯网页不能安全直连。</p>
+        <div style="display:flex;gap:10px;margin:10px 0"><button class="btn primary" style="flex:1" id="cgpt-copy" type="button">复制当前上下文</button><button class="btn" style="flex:1" id="cgpt-open" type="button">打开 ChatGPT</button></div>
+        <div class="f-group" style="margin-bottom:8px"><label>ChatGPT 回复</label><textarea id="cgpt-reply" rows="4" placeholder="把 ChatGPT 的回复粘贴到这里"></textarea></div>
+        <button class="btn wide" id="cgpt-import" type="button">作为 TA 回复写回当前对话</button>
+        <p class="hint" id="cgpt-status" style="margin-bottom:0"></p>
+      </div>
     </div>
     <div class="psec" id="sec-api-global">
       <!-- ── 进阶指令 ── -->
@@ -3444,6 +3454,16 @@ self.addEventListener(&#x27;fetch&#x27;,function(e){
         <p class="hint" id="imp-log" style="display:none;color:var(--tx2)"></p>
         <p class="hint">导入：并入备份里的名片、API 配置、聊天记录、话题频道、对话摘要、群聊、上传文件、记忆库、Auto Memory、设置、日历事项与便笺、公开日志、日志分类、信件、日志留言、日志批注、ICode 项目/文件与 Beyond 动态，同 id 记录以文件为准，其余数据不受影响；备份里手机端不认识的模块自动跳过，并记入上方导入日志。<br>导出：也只含这些模块，拿到电脑版导入时其余模块不会被改动。ICode 文件里若存有 AI 生成的图片，备份体积会随之增大。</p>
         <p class="hint" style="margin-top:8px"><strong style="color:var(--tx2)">API 密钥提醒</strong>：备份文件里包含全部 API 配置的密钥（明文）。把备份发给任何人之前，请先到 API 页把各配置的 Key 清空后再导出，或导出后手动删掉文件中的 apiKey 字段；同样地，导入他人的备份也会把对方的 Key 一并写进来。</p>
+      </div>
+      <div class="sec-label">云同步</div>
+      <div class="card fx-card" id="cloud-sync-card"><div class="fx-ico"><svg viewBox="0 0 24 24"><path d="M7 18.5h10.5a3.5 3.5 0 0 0 .6-6.9A6.2 6.2 0 0 0 6.4 9.2 4.7 4.7 0 0 0 7 18.5z"/><path d="M12 10.5v6M9.7 12.8L12 10.5l2.3 2.3"/></svg></div>
+        <div class="cm-sub-t">GitHub 私有云同步</div>
+        <p class="hint" style="margin-top:4px">复用 ICode → GitHub 中保存在本机的 PAT，把全站备份经 AES-GCM 加密后写入<strong>私有仓库</strong>。口令不保存、不上传；忘记口令无法恢复。公开仓库会被拒绝。</p>
+        <div class="f-group"><label>私有仓库 <span class="lb-note">owner/repo</span></label><input id="cloud-repo" autocomplete="off" placeholder="你的用户名/mian-private-data"></div>
+        <div class="f-row"><div class="f-group"><label>分支</label><input id="cloud-branch" autocomplete="off" value="main"></div><div class="f-group"><label>文件路径</label><input id="cloud-path" autocomplete="off" value="mian/cloud-backup.enc.json"></div></div>
+        <div class="f-group"><label>同步口令 <span class="lb-note">至少 8 位，仅本次使用</span></label><input id="cloud-pass" type="password" autocomplete="new-password" placeholder="输入加密口令"></div>
+        <div style="display:flex;gap:10px"><button class="btn primary" style="flex:1" id="cloud-push" type="button">上传加密备份</button><button class="btn" style="flex:1" id="cloud-pull" type="button">下载并合并</button></div>
+        <p class="hint" id="cloud-status" style="margin-bottom:0">先在 ICode → GitHub 连接有该私有仓库 Contents 读写权限的 PAT。</p>
       </div>
       <div class="sec-label">聊天记录管理</div>
       <div class="card fx-card">
@@ -11807,6 +11827,39 @@ $('aset-del').addEventListener('click',async()=>{
   try{await dbDelete('apiConfigs',_editCfgId)}catch(e){toast('删除失败');return}
   closeSub('sub-aset');renderApiList();toast('已删除');
 });
+
+/* ChatGPT 订阅通道：静态 PWA 不接触 ChatGPT Cookie / OAuth 令牌，只做用户可见的上下文交接。 */
+(function _cgptWireM(){
+  var copy=$('cgpt-copy'),open=$('cgpt-open'),imp=$('cgpt-import'),reply=$('cgpt-reply'),status=$('cgpt-status');
+  if(!copy||!open||!imp)return;
+  function setStatus(t){if(status)status.textContent=t||''}
+  async function clip(t){
+    try{await navigator.clipboard.writeText(t);return true}catch(e){}
+    try{var x=document.createElement('textarea');x.value=t;x.style.cssText='position:fixed;left:-9999px;top:0';document.body.appendChild(x);x.focus();x.select();var ok=document.execCommand('copy');x.remove();return ok}catch(e2){return false}
+  }
+  copy.addEventListener('click',async function(){
+    var cfg=typeof _activeCfg!=='undefined'?_activeCfg:null;
+    if(!cfg||cfg._group){toast('先打开一位 TA 的一对一对话');return}
+    var list=(typeof _msgs!=='undefined'&&Array.isArray(_msgs)?_msgs:[]).filter(function(m){return m&&m.friendId===cfg.id&&(m.role==='user'||m.role==='assistant')}).slice(-40);
+    var out=['请在 ChatGPT 中继续下面这段对话。保持角色、语气与已有事实；直接回复最后一条用户消息，不要解释你收到了上下文。'];
+    if(String(cfg.systemPrompt||'').trim())out.push('\n【TA 人设 / System Prompt】\n'+String(cfg.systemPrompt).trim());
+    out.push('\n【最近对话】');
+    list.forEach(function(m){out.push((m.role==='user'?'用户':cfgName(cfg))+'：'+String(m.content||'').trim())});
+    var ok=await clip(out.join('\n'));
+    if(ok){setStatus('已复制 '+list.length+' 条消息；切到 ChatGPT 粘贴即可。');toast('已复制 ChatGPT 交接上下文')}else{setStatus('浏览器拒绝剪贴板权限，请改用 HTTPS/PWA 后重试。');toast('复制失败')}
+  });
+  open.addEventListener('click',function(){var w=window.open('https://chatgpt.com/','_blank','noopener,noreferrer');if(!w)toast('浏览器拦截了新窗口，请允许后重试')});
+  imp.addEventListener('click',async function(){
+    var cfg=typeof _activeCfg!=='undefined'?_activeCfg:null,text=String(reply&&reply.value||'').trim();
+    if(!cfg||cfg._group||typeof currentPage==='undefined'||currentPage!=='chat'){toast('先回到一位 TA 的一对一对话');return}
+    if(!text){toast('先粘贴 ChatGPT 的回复');return}
+    var am={id:'msg_'+Date.now()+'_cgpt',role:'assistant',content:text,friendId:cfg.id,senderName:cfgName(cfg),timestamp:Date.now(),source:'chatgpt-subscription',manualImport:true};
+    if(_activeThread)am.threadId=_activeThread.id;
+    try{await dbPut('chatMessages',am)}catch(e){toast('写回失败：'+String(e&&e.message||e).slice(0,60));return}
+    _msgs.push(am);try{var box=convEl('cv-msgs');box.appendChild(buildMsgEl(am));pinBottom()}catch(e){}
+    reply.value='';setStatus('已作为 '+cfgName(cfg)+' 的回复写回当前对话。');toast('ChatGPT 回复已写回');try{_friendsBump()}catch(e){}
+  });
+})();
 /* 全局分区 */
 async function renderApiGlobal(){
   await loadMP();await loadOUT();await loadMS();await loadCfgs();
@@ -12709,6 +12762,26 @@ async function _mioRunExport(){
   e.ft.innerHTML='<button class="btn primary" id="mio-cancel">完成</button>';
   $('mio-cancel').addEventListener('click',_mioClose);
 }
+
+/* GitHub 私有云同步：复用本机 PAT；备份先在本机 AES-GCM 加密，口令不持久化。 */
+function _cloudCfgM(){try{return JSON.parse(localStorage.getItem('ib_cloudSync')||'{}')||{}}catch(e){return{}}}
+function _cloudCfgSaveM(){try{localStorage.setItem('ib_cloudSync',JSON.stringify({repo:String($('cloud-repo').value||'').trim(),branch:String($('cloud-branch').value||'main').trim()||'main',path:String($('cloud-path').value||'mian/cloud-backup.enc.json').trim()||'mian/cloud-backup.enc.json'}))}catch(e){}}
+function _cloudStatusM(t,bad){var e=$('cloud-status');if(e){e.textContent=t||'';e.style.color=bad?'#c96a6a':''}}
+function _cloudB64M(u){var s='',step=32768;for(var i=0;i<u.length;i+=step){var p=u.subarray(i,Math.min(i+step,u.length));s+=String.fromCharCode.apply(null,p)}return btoa(s)}
+function _cloudUnb64M(s){var b=atob(String(s||'').replace(/\s/g,'')),u=new Uint8Array(b.length);for(var i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return u}
+async function _cloudKeyM(pass,salt){var raw=await crypto.subtle.importKey('raw',new TextEncoder().encode(pass),'PBKDF2',false,['deriveKey']);return crypto.subtle.deriveKey({name:'PBKDF2',salt:salt,iterations:210000,hash:'SHA-256'},raw,{name:'AES-GCM',length:256},false,['encrypt','decrypt'])}
+async function _cloudEncryptM(data,pass){var salt=crypto.getRandomValues(new Uint8Array(16)),iv=crypto.getRandomValues(new Uint8Array(12)),key=await _cloudKeyM(pass,salt),plain=new TextEncoder().encode(JSON.stringify(data)),enc=new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM',iv:iv},key,plain));return{format:'mian-cloud-backup',version:1,createdAt:new Date().toISOString(),appVersion:IB_VER,kdf:{name:'PBKDF2',hash:'SHA-256',iterations:210000,salt:_cloudB64M(salt)},cipher:{name:'AES-GCM',iv:_cloudB64M(iv),data:_cloudB64M(enc)}}}
+async function _cloudDecryptM(env,pass){if(!env||env.format!=='mian-cloud-backup'||!env.kdf||!env.cipher)throw new Error('不是 Mian 加密云备份');var salt=_cloudUnb64M(env.kdf.salt),iv=_cloudUnb64M(env.cipher.iv),key=await _cloudKeyM(pass,salt),plain=await crypto.subtle.decrypt({name:'AES-GCM',iv:iv},key,_cloudUnb64M(env.cipher.data));return JSON.parse(new TextDecoder().decode(plain))}
+async function _cloudBackupM(){var out={};for(var i=0;i<SYNC_STORES.length;i++){var s=SYNC_STORES[i],list=[];try{list=await dbGetAll(s)}catch(e){list=[]}out[s]=(list||[]).filter(function(v){return !(s==='apiSettings'&&v&&v.id==='ib_fsSyncDir')}).map(function(v){if(!v)return v;if(s==='chatMessages'){v=Object.assign({},v);delete v.upstreamRaw;delete v.thinkingSources}return v})}out.exportDate=new Date().toISOString();out.version=4;out.appVersion=IB_VER;out.cloudEncrypted=true;return out}
+function _cloudFieldsM(){return{repo:String($('cloud-repo').value||'').trim(),branch:String($('cloud-branch').value||'main').trim()||'main',path:String($('cloud-path').value||'mian/cloud-backup.enc.json').trim().replace(/^\/+/,''),pass:String($('cloud-pass').value||'')}}
+async function _cloudGuardM(f){if(!_ghTok())throw new Error('先到 ICode → GitHub 连接 PAT');if(!/^[^/\s]+\/[^/\s]+$/.test(f.repo))throw new Error('私有仓库请填写 owner/repo');if(!f.path)throw new Error('文件路径不能为空');if(f.pass.length<8)throw new Error('同步口令至少 8 位');var rp=await _ghApi('/repos/'+f.repo);if(!rp.private)throw new Error('为保护隐私，只允许同步到私有仓库');return rp}
+async function _cloudReadTextM(f){var meta=await _ghApi('/repos/'+f.repo+'/contents/'+_ghPath(f.path)+'?ref='+encodeURIComponent(f.branch)),b64=meta&&meta.content;if(!b64&&meta&&meta.sha){var bl=await _ghApi('/repos/'+f.repo+'/git/blobs/'+meta.sha);b64=bl&&bl.content}if(!b64)throw new Error('云端备份内容为空');var d=_ghDec(b64);if(d.bin)throw new Error('云端文件不是文本备份');return{text:d.text,meta:meta}}
+async function _cloudApplyM(data){var found=SYNC_STORES.filter(function(s){return Array.isArray(data&&data[s])});if(!found.length)throw new Error('解密内容里没有可用数据');for(var i=0;i<found.length;i++){var s=found[i],list=data[s].filter(function(x){return x&&typeof x==='object'});if(list.length)await dbPutAll(s,list)}_about=null;_mp=null;_mpFromDb=false;_vt=null;_ms=null;_ibt=null;_out=null;_outFromDb=false;_cs=null;_mbgs=null;_calEvents=[];_calNotes=[];await loadCfgs();await loadMP();try{renderDataSum()}catch(e){}try{showSec()}catch(e){}return found.length}
+(function _cloudWireM(){
+  var push=$('cloud-push'),pull=$('cloud-pull');if(!push||!pull)return;var c=_cloudCfgM();$('cloud-repo').value=c.repo||'';$('cloud-branch').value=c.branch||'main';$('cloud-path').value=c.path||'mian/cloud-backup.enc.json';['cloud-repo','cloud-branch','cloud-path'].forEach(function(id){$(id).addEventListener('change',_cloudCfgSaveM)});
+  push.addEventListener('click',async function(){var f=_cloudFieldsM();push.disabled=pull.disabled=true;_cloudStatusM('正在校验私有仓库…');try{await _cloudGuardM(f);var old=null;try{old=await _ghApi('/repos/'+f.repo+'/contents/'+_ghPath(f.path)+'?ref='+encodeURIComponent(f.branch))}catch(e){}if(old){var ok=await confirmDlg('云端已有备份。继续会以新的加密备份覆盖该文件；Git 历史仍可找回旧版本。','覆盖上传');if(!ok){_cloudStatusM('已取消上传。');return}}_cloudStatusM('正在整理并加密本机数据…');var data=await _cloudBackupM(),env=await _cloudEncryptM(data,f.pass),txt=JSON.stringify(env);if(txt.length>90*1024*1024)throw new Error('加密备份超过 90 MB，请先清理大文件');_cloudStatusM('正在上传加密备份…');var body={message:'data: update encrypted Mian cloud backup',content:_ghB64(txt),branch:f.branch};if(old&&old.sha)body.sha=old.sha;var rr=await _ghApi('/repos/'+f.repo+'/contents/'+_ghPath(f.path),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});_cloudCfgSaveM();_cloudStatusM('上传完成 · '+env.createdAt.replace('T',' ').slice(0,19)+' · commit '+String(rr&&rr.commit&&rr.commit.sha||'').slice(0,7));toast('加密云备份已上传')}catch(e){_cloudStatusM('上传失败：'+String(e&&e.message||e).slice(0,120),true);toast('云同步上传失败')}finally{push.disabled=pull.disabled=false}});
+  pull.addEventListener('click',async function(){var f=_cloudFieldsM();push.disabled=pull.disabled=true;_cloudStatusM('正在读取云端备份…');try{await _cloudGuardM(f);var got=await _cloudReadTextM(f),env=JSON.parse(got.text);_cloudStatusM('正在本机解密…');var data=await _cloudDecryptM(env,f.pass);var ok=await confirmDlg('将云端备份并入本机？同 id 记录以云端为准，其余本机数据保留。','下载并合并');if(!ok){_cloudStatusM('已取消合并。');return}var n=await _cloudApplyM(data);_cloudCfgSaveM();_cloudStatusM('同步完成 · '+(env.createdAt||data.exportDate||'未知时间')+' · '+n+' 个数据模块');toast('云端备份已合并到本机')}catch(e){_cloudStatusM('下载失败：'+String(e&&e.message||e).slice(0,120),true);toast('云同步下载失败')}finally{push.disabled=pull.disabled=false}});
+})();
 $('btn-wipe').addEventListener('click',async()=>{
   if(!await confirmDlg('清空手机端读写的全部数据？\n包括名片、API 配置、聊天记录、记忆库、Auto Memory、设置、日历与台账、歌单与歌曲分析、公开日志与 Beyond 动态。此操作不可撤销，请先导出备份。','清空'))return;
   if(!await confirmDlg('最后确认：此操作不可逆，所有数据将永久丢失。','确认清空'))return;
