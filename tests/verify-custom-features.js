@@ -8,7 +8,7 @@ const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 
 let scriptsChecked = 0;
 for (const match of html.matchAll(/<script([^>]*)>([\s\S]*?)<\/script>/gi)) {
-  if (/type=["'](?:application\/json|importmap)/i.test(match[1])) continue;
+  if (/type=["'](?:application\/json|importmap|text\/plain)/i.test(match[1])) continue;
   if (!match[2].trim()) continue;
   scriptsChecked += 1;
   new Function(match[2]);
