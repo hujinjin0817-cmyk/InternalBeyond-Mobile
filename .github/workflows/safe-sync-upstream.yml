@@ -1,0 +1,63 @@
+name: Safe upstream merge
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: safe-upstream-merge-mian-personal
+  cancel-in-progress: false
+
+jobs:
+  merge-upstream:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the customized branch
+        uses: actions/checkout@v4
+        with:
+          ref: mian-personal
+          fetch-depth: 0
+
+      - name: Merge Sui-IB upstream without overwriting custom work
+        shell: bash
+        run: |
+          set -o pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git remote remove upstream 2>/dev/null || true
+          git remote add upstream https://github.com/Sui-IB/InternalBeyond-Mobile.git
+          git fetch --prune upstream main
+
+          if git merge-base --is-ancestor upstream/main HEAD; then
+            echo "mian-personal already contains upstream/main." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          if ! git merge --no-ff --no-commit upstream/main; then
+            conflicts="$(git diff --name-only --diff-filter=U)"
+            {
+              echo "## Upstream merge stopped"
+              echo
+              echo "Conflicts were detected. Nothing was committed or pushed."
+              echo
+              echo '```text'
+              echo "$conflicts"
+              echo '```'
+              echo
+              echo "Resolve these files on a separate branch, then rerun this workflow. Do not use Discard commits or force-push."
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "::error title=Upstream merge conflict::Merge stopped without pushing. Conflicts: ${conflicts//$'\n'/, }"
+            git merge --abort
+            exit 1
+          fi
+
+          if git rev-parse -q --verify MERGE_HEAD >/dev/null; then
+            git commit -m "chore: merge Sui-IB upstream safely"
+            git push origin HEAD:mian-personal
+            echo "Merged upstream/main into mian-personal and preserved the customized branch history." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "No merge commit was needed." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
